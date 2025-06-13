@@ -17,6 +17,9 @@ class Database {
 
         try {
             $this->pdo = new PDO($dsn, $this->config['username'], $this->config['password'], $options);
+
+            $this->pdo->exec('SET search_path TO ' . $this->config['schema']);
+
         } catch (PDOException $e) {
             throw new PDOException($e->getMessage(), (int)$e->getCode());
         }
