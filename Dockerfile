@@ -21,10 +21,12 @@ RUN mkdir -p /run/php && chown www-data:www-data /run/php
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY config/php/php.ini /etc/php/7.4/fpm/php.ini
 COPY config/nginx/default.conf /etc/nginx/nginx.conf
+COPY src/ /var/www/html/
 
 # Définir les permissions du répertoire web
 WORKDIR /var/www/html
 RUN chown -R www-data:www-data /var/www/html
+RUN chmod -R 777 /var/www/html
 
 # Exposer le port
 EXPOSE 80

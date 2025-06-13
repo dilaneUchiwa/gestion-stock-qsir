@@ -7,9 +7,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - "./src:/var/www/html"
       - "./logs:/var/log/nginx"
-      - "./src/:/var/www/html/"
     networks:
       - gestion-stock_network
 
