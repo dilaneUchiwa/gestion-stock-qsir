@@ -1,0 +1,63 @@
+**Diagramme de Séquence : Génération d'un Rapport des Ventes sur une Période**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `ReportController.php`
+*   `Sale.php` (Modèle Vente)
+*   `Client.php` (Modèle Client - pour le filtre client)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`reports/sales_report.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Navigue vers la page du rapport des ventes (ex: via "Rapports" -> "Rapport des Ventes").
+    *   Requête GET (ex: `index.php?url=report/sales_report`).
+    *   L'utilisateur peut également soumettre le formulaire de filtre sur la page, ce qui envoie une requête GET avec des paramètres de filtre (dates, client_id, payment_status, period).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le serveur reçoit la requête GET.
+    *   Le Routeur analyse l'URL et appelle `ReportController::sales_report()`.
+
+3.  **Routeur -> `ReportController::sales_report()` :**
+    *   La méthode `sales_report()` est exécutée.
+    *   `ReportController` charge la liste des clients (`ClientModel->getAll()`) pour le menu déroulant du filtre.
+    *   Récupère les paramètres de filtre depuis `$_GET` (start_date, end_date, client_id, payment_status, period).
+    *   Définit des dates par défaut si aucun filtre n'est fourni (ex: mois en cours).
+    *   Ajuste `start_date` et `end_date` si un `period` prédéfini est sélectionné (ex: 'last7days', 'this_month').
+    *   Appelle `SaleModel->getSalesByDateRangeAndFilters($filters)`.
+
+4.  **`ReportController` -> `SaleModel::getSalesByDateRangeAndFilters($filters)` :**
+    *   Le modèle `Sale.php` construit une requête SQL SELECT pour la table `sales`.
+    *   La requête joint la table `clients` pour obtenir le nom du client enregistré.
+    *   Elle applique des clauses WHERE basées sur les filtres fournis (plage de dates, `client_id`, `payment_status`).
+    *   Appelle `Database->select()` pour exécuter la requête.
+    *   Retourne un tableau des ventes correspondantes. Le modèle ajoute également `client_display_name` à chaque vente.
+
+5.  **`SaleModel` -> `Database::select($sql, $params)` :**
+    *   Exécution de la requête SELECT.
+
+6.  **`Database` -> `SaleModel` :**
+    *   Le tableau des ventes est retourné au modèle.
+
+7.  **`SaleModel` -> `ReportController` :**
+    *   Le tableau des ventes filtrées est retourné au contrôleur.
+
+8.  **`ReportController::sales_report()` (suite) :**
+    *   `ReportController` stocke les ventes récupérées et les filtres.
+    *   Appelle `renderView('reports/sales_report', $data)` avec les ventes, les filtres, la liste des clients, les statuts de paiement autorisés, et le titre.
+
+9.  **`ReportController` -> Vue (`reports/sales_report.php`, `layouts/main.php`) :**
+    *   La vue `reports/sales_report.php` est rendue.
+    *   Elle affiche le formulaire de filtre, pré-rempli avec les filtres actuels.
+    *   Elle itère sur le tableau des ventes et les affiche dans un tableau HTML, incluant le client, les dates, le montant total, le statut de paiement, etc.
+    *   Elle peut calculer et afficher un grand total pour la période sélectionnée.
+
+10. **Navigateur Web :**
+    *   Affiche la page du rapport des ventes avec les données filtrées.
+
+**Fin de la Séquence.**

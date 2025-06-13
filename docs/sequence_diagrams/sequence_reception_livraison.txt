@@ -1,0 +1,92 @@
+**Diagramme de Séquence : Réception d'une Livraison (basée sur Commande, avec MàJ Stock)**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `DeliveryController.php`
+*   `Delivery.php` (Modèle Livraison)
+*   `DeliveryItem.php` (Modèle Ligne Livraison)
+*   `PurchaseOrder.php` (Modèle Commande Fournisseur - pour récupérer items commandés et MàJ statut)
+*   `Product.php` (Modèle Produit - pour MàJ stock)
+*   `StockMovement.php` (Modèle Mouvement de Stock)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`procurement/deliveries/create.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Depuis une commande fournisseur (PO) ou une liste de POs, clique sur "Recevoir Items" pour une PO spécifique.
+    *   Requête GET (ex: `index.php?url=delivery/create&po_id=123`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `DeliveryController::create()`.
+
+3.  **Routeur -> `DeliveryController::create()` :**
+    *   Récupère `po_id` depuis GET.
+    *   `DeliveryController` appelle `PurchaseOrderModel->getByIdWithItems($poId)` pour obtenir les détails de la PO et ses lignes.
+    *   `DeliveryController` appelle une méthode helper (ex: `getPendingPoItems()`) qui calcule les quantités déjà reçues pour chaque ligne de la PO en consultant les tables `deliveries` et `delivery_items`.
+    *   Appelle `renderView('procurement/deliveries/create', $data)` avec les détails de la PO, les items en attente de réception, les types de livraison, etc.
+
+4.  **`DeliveryController` -> Vue (`procurement/deliveries/create.php`) :**
+    *   La vue affiche le formulaire de réception.
+    *   Les informations de la PO (fournisseur, etc.) sont affichées.
+    *   Les lignes de produits de la PO en attente de réception sont listées, avec la quantité commandée, déjà reçue, et en attente.
+    *   Des champs de saisie permettent à l'utilisateur d'entrer la `quantity_received` pour chaque item.
+
+5.  **Utilisateur -> Navigateur Web (Formulaire) :**
+    *   Entre la date de livraison, les quantités reçues pour chaque item, notes, type de livraison.
+    *   Clique sur "Enregistrer Réception".
+    *   Requête POST (ex: `index.php?url=delivery/store`) avec les données de la livraison et un tableau d'items (`$_POST['items']`).
+
+6.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `DeliveryController::store()`.
+
+7.  **Routeur -> `DeliveryController::store()` :**
+    *   Récupère et valide les données POST (en-tête et items).
+        *   Validation inclut la vérification que la quantité reçue ne dépasse pas la quantité en attente pour chaque ligne de la PO.
+        *   Si validation échoue : Recharge la vue `create.php` avec erreurs et données.
+    *   Si validation réussit : Appelle `DeliveryModel->createDelivery($data, $itemsData)`.
+
+8.  **`DeliveryController` -> `DeliveryModel::createDelivery($data, $itemsData)` :**
+    *   Le modèle `Delivery.php` commence une transaction de base de données.
+    *   **Insertion de l'en-tête de la livraison :**
+        *   Construit SQL INSERT pour `deliveries`. Appelle `Database->insert()`. Récupère `$deliveryId`.
+        *   Si échec, rollback et retourne `false`.
+    *   **Pour chaque item dans `$itemsData` :**
+        *   **Insertion de la ligne de livraison :**
+            *   Construit SQL INSERT pour `delivery_items` (incluant `$deliveryId`, `product_id`, `quantity_received`, `purchase_order_item_id`).
+            *   Appelle `Database->insert()`. Récupère `$deliveryItemId`.
+            *   Si échec, rollback et retourne `false`.
+        *   **Mise à jour du stock du produit (et création du mouvement de stock) :**
+            *   Appelle `ProductModel->updateStock($productId, $quantityReceived, 'in_delivery', $deliveryItemId, 'delivery_items', $notes)`.
+                *   `ProductModel->updateStock()` (transaction interne) :
+                    *   UPDATE `products` SET `quantity_in_stock` = `quantity_in_stock` + `$quantityReceived`.
+                    *   INSERT dans `stock_movements` (type 'in_delivery', `related_document_id` = `$deliveryItemId`, `related_document_type` = 'delivery_items').
+                *   Si `updateStock` échoue (ex: erreur DB), `createDelivery` fait un rollback et retourne `false`.
+    *   **Mise à jour du statut de la Commande Fournisseur (PO) :**
+        *   Calcule si la PO est maintenant `partially_received` ou `received` en comparant les quantités totales commandées pour chaque item de la PO avec les quantités totales reçues (cumul de toutes les livraisons pour cette PO).
+        *   Appelle `PurchaseOrderModel->updateStatus($poId, $newStatus)`.
+        *   Si échec, rollback et retourne `false`.
+    *   Si tout réussit : Commit la transaction principale.
+    *   Retourne `$deliveryId`.
+
+9.  **`DeliveryModel` -> `Database` / `ProductModel` / `PurchaseOrderModel` (multiples appels) :**
+    *   Exécutions des requêtes et des logiques métier.
+
+10. **Modèles -> `DeliveryModel` :**
+    *   Résultats des opérations.
+
+11. **`DeliveryModel` -> `DeliveryController` :**
+    *   Retourne `$deliveryId` (si succès) ou `false` (si échec).
+
+12. **`DeliveryController::store()` (fin) :**
+    *   Si succès (`$deliveryId` valide) : Redirection vers `delivery/show/$deliveryId` avec message de succès.
+    *   Si échec : Recharge la vue `create.php` avec un message d'erreur général.
+
+13. **Navigateur Web :**
+    *   Suit la redirection et affiche la livraison nouvellement enregistrée ou le formulaire avec erreurs.
+
+**Fin de la Séquence.**

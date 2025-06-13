@@ -1,0 +1,73 @@
+**Diagramme de Séquence : Enregistrement d'une Facture Fournisseur**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `SupplierinvoiceController.php`
+*   `SupplierInvoice.php` (Modèle Facture Fournisseur)
+*   `Supplier.php` (Modèle Fournisseur - pour lister les fournisseurs)
+*   `Delivery.php` (Modèle Livraison - pour lier à une livraison, optionnel)
+*   `PurchaseOrder.php` (Modèle Commande Fournisseur - pour lier à une PO, optionnel)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`procurement/supplier_invoices/create.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Navigue vers la page de création de facture fournisseur (ex: via un lien "Nouvelle Facture Fournisseur", ou depuis une livraison/PO).
+    *   Requête GET (ex: `index.php?url=supplierinvoice/create`, ou avec `delivery_id` / `po_id` en paramètres GET).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `SupplierinvoiceController::create()`.
+
+3.  **Routeur -> `SupplierinvoiceController::create()` :**
+    *   `SupplierinvoiceController` vérifie les paramètres GET (`delivery_id`, `po_id`).
+    *   Si `delivery_id` est fourni, charge les détails de la livraison via `DeliveryModel->getByIdWithDetails()` pour pré-remplir le fournisseur et potentiellement le montant.
+    *   Si `po_id` est fourni (et pas `delivery_id`), charge les détails de la PO via `PurchaseOrderModel->getById()` pour pré-remplir.
+    *   Charge tous les fournisseurs (`SupplierModel->getAll()`) pour le sélecteur.
+    *   Appelle `renderView('procurement/supplier_invoices/create', $data)` avec les données pré-remplies et les listes.
+
+4.  **`SupplierinvoiceController` -> Vue (`procurement/supplier_invoices/create.php`) :**
+    *   La vue affiche le formulaire de création de facture.
+    *   Les champs peuvent être pré-remplis (fournisseur, montant, liens vers livraison/PO).
+
+5.  **Utilisateur -> Navigateur Web (Formulaire) :**
+    *   Vérifie/complète les informations de la facture : fournisseur, numéro de facture, date de facture, date d'échéance, montant total, statut initial, notes.
+    *   Lie éventuellement à une livraison ou une commande si non fait automatiquement.
+    *   Clique sur "Créer Facture".
+    *   Le navigateur envoie une requête POST (ex: `index.php?url=supplierinvoice/store`) avec les données de la facture.
+
+6.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `SupplierinvoiceController::store()`.
+
+7.  **Routeur -> `SupplierinvoiceController::store()` :**
+    *   Récupère et valide les données POST.
+        *   Champs obligatoires : fournisseur, numéro de facture, date de facture, montant total.
+        *   Unicité du numéro de facture par fournisseur (gérée par la DB, mais peut être pré-vérifiée).
+        *   Si validation échoue : Recharge la vue `create.php` avec erreurs et données.
+    *   Si validation réussit : Appelle `SupplierInvoiceModel->createInvoice($data)`.
+
+8.  **`SupplierinvoiceController` -> `SupplierInvoiceModel::createInvoice($data)` :**
+    *   Le modèle `SupplierInvoice.php` construit une requête SQL INSERT pour la table `supplier_invoices`.
+    *   Appelle `Database->insert()` pour `supplier_invoices`. Récupère `$invoiceId`.
+
+9.  **`SupplierInvoiceModel` -> `Database::insert($sql, $params)` :**
+    *   Exécution de la requête INSERT.
+
+10. **`Database` -> `SupplierInvoiceModel` :**
+    *   Retourne `$invoiceId` (si succès) ou `false` (si échec, ex: violation de contrainte unique).
+
+11. **`SupplierInvoiceModel` -> `SupplierinvoiceController` :**
+    *   Retourne `$invoiceId` ou `false`.
+
+12. **`SupplierinvoiceController::store()` (fin) :**
+    *   Si succès (`$invoiceId` valide) : Redirection vers `supplierinvoice/show/$invoiceId` avec message de succès.
+    *   Si échec (ex: numéro de facture dupliqué) : Recharge la vue `create.php` avec un message d'erreur spécifique.
+
+13. **Navigateur Web :**
+    *   Suit la redirection et affiche la facture nouvellement créée ou le formulaire avec erreurs.
+
+**Fin de la Séquence.**

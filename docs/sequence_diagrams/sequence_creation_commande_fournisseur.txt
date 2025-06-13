@@ -1,0 +1,84 @@
+**Diagramme de Séquence : Création d'une Commande Fournisseur (avec items)**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `PurchaseorderController.php`
+*   `PurchaseOrder.php` (Modèle Commande Fournisseur)
+*   `PurchaseOrderItem.php` (Modèle Ligne Commande Fournisseur - bien que la logique principale soit dans `PurchaseOrder.php`)
+*   `Supplier.php` (Modèle Fournisseur - pour lister les fournisseurs)
+*   `Product.php` (Modèle Produit - pour lister les produits)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`procurement/purchase_orders/create.php`, `layouts/main.php`)
+*   JavaScript (côté client pour l'ajout dynamique de lignes d'items)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Navigue vers la page de création de commande fournisseur (ex: via un lien "Nouvelle Commande Fournisseur").
+    *   Requête GET (ex: `index.php?url=purchaseorder/create`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `PurchaseorderController::create()`.
+
+3.  **Routeur -> `PurchaseorderController::create()` :**
+    *   `PurchaseorderController` charge les fournisseurs (`SupplierModel->getAll()`) et les produits (`ProductModel->getAll()`).
+    *   Appelle `renderView('procurement/purchase_orders/create', $data)` avec les fournisseurs, produits, etc.
+
+4.  **`PurchaseorderController` -> Vue (`procurement/purchase_orders/create.php`) :**
+    *   La vue affiche le formulaire de création de commande.
+    *   Les listes de fournisseurs et produits sont utilisées pour peupler des `<select>`.
+    *   Le JavaScript pour l'ajout/suppression dynamique de lignes d'items est initialisé.
+
+5.  **Utilisateur -> Navigateur Web (Formulaire) :**
+    *   Sélectionne un fournisseur, entre les dates, notes.
+    *   Utilise l'interface JavaScript pour ajouter des lignes de produits :
+        *   Sélectionne un produit.
+        *   Entre la quantité commandée et le prix unitaire (le prix peut être pré-rempli à partir du produit).
+        *   Le JavaScript met à jour le sous-total de la ligne et le total général de la commande dynamiquement.
+    *   Clique sur "Créer Commande".
+    *   Le navigateur envoie une requête POST (ex: `index.php?url=purchaseorder/store`) avec les données de l'en-tête de la commande et un tableau d'items (`$_POST['items']`).
+
+6.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `PurchaseorderController::store()`.
+
+7.  **Routeur -> `PurchaseorderController::store()` :**
+    *   Récupère et valide les données POST (en-tête et items).
+        *   Si validation échoue : Recharge la vue `create.php` avec erreurs et données.
+    *   Si validation réussit : Appelle `PurchaseOrderModel->createOrder($data, $itemsData)`.
+
+8.  **`PurchaseorderController` -> `PurchaseOrderModel::createOrder($data, $itemsData)` :**
+    *   Le modèle `PurchaseOrder.php` commence une transaction de base de données.
+    *   **Insertion de l'en-tête de la commande :**
+        *   Construit une requête SQL INSERT pour `purchase_orders`.
+        *   Calcule `total_amount` basé sur `$itemsData`.
+        *   Appelle `Database->insert()` pour `purchase_orders`. Récupère `$poId`.
+        *   Si échec, rollback et retourne `false`.
+    *   **Insertion des lignes de commande (items) :**
+        *   Pour chaque item dans `$itemsData` :
+            *   Construit une requête SQL INSERT pour `purchase_order_items` (incluant `$poId`, `product_id`, `quantity_ordered`, `unit_price`).
+            *   Appelle `Database->executeQuery()` (ou `insert()` si `PurchaseOrderItemModel` était utilisé directement pour chaque item).
+            *   Si échec, rollback et retourne `false`.
+    *   Si toutes les insertions réussissent : Commit la transaction.
+    *   Retourne `$poId`.
+
+9.  **`PurchaseOrderModel` -> `Database` (multiples appels) :**
+    *   Exécutions des requêtes INSERT.
+
+10. **`Database` -> `PurchaseOrderModel` :**
+    *   Résultats des insertions.
+
+11. **`PurchaseOrderModel` -> `PurchaseorderController` :**
+    *   Retourne `$poId` (si succès) ou `false` (si échec).
+
+12. **`PurchaseorderController::store()` (fin) :**
+    *   Si succès (`$poId` valide) : Redirection vers `purchaseorder/show/$poId` avec message de succès.
+    *   Si échec : Recharge la vue `create.php` avec un message d'erreur général.
+
+13. **Navigateur Web :**
+    *   Suit la redirection et affiche la commande nouvellement créée ou le formulaire avec erreurs.
+
+**Fin de la Séquence.**

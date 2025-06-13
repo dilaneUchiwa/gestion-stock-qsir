@@ -1,0 +1,72 @@
+**Diagramme de Séquence : Consultation de l'Historique des Mouvements de Stock pour un Produit**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `StockController.php`
+*   `Product.php` (Modèle Produit - pour récupérer les détails du produit)
+*   `StockMovement.php` (Modèle Mouvement de Stock)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`stock/history.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Clique sur "Historique" pour un produit spécifique (ex: depuis la liste des produits ou la page de détail d'un produit).
+    *   Le navigateur envoie une requête GET (ex: `index.php?url=stock/history/456` où 456 est `$productId`).
+    *   L'utilisateur peut aussi appliquer des filtres de date via le formulaire sur la page d'historique, ce qui soumettrait à nouveau une requête GET avec des paramètres de date.
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le serveur reçoit la requête GET.
+    *   Le Routeur analyse l'URL et détermine que `StockController` et sa méthode `history($productId)` doivent être appelés.
+
+3.  **Routeur -> `StockController::history($productId)` :**
+    *   La méthode `history()` est exécutée.
+    *   `StockController` appelle `ProductModel->getById($productId)` pour obtenir les informations du produit.
+        *   Si le produit n'est pas trouvé, affiche une vue d'erreur 404.
+    *   Récupère les filtres de date (`start_date`, `end_date`) depuis `$_GET` s'ils existent.
+    *   `StockController` appelle `StockMovementModel->getMovementsByProduct($productId, $dateRange)`.
+    *   `StockController` appelle `StockMovementModel->getCurrentStockCalculated($productId)` pour obtenir le stock calculé (à des fins de comparaison ou d'affichage).
+
+4.  **`StockController` -> `ProductModel::getById($productId)` :**
+    *   Exécute une requête SELECT sur la table `products`.
+    *   Retourne les données du produit.
+
+5.  **`StockController` -> `StockMovementModel::getMovementsByProduct($productId, $dateRange)` :**
+    *   Le modèle `StockMovement.php` construit une requête SQL SELECT pour la table `stock_movements`.
+    *   La requête filtre par `product_id` et optionnellement par `movement_date` (si `$dateRange` est fourni).
+    *   Elle joint la table `products` pour obtenir le nom du produit (déjà fait par `ProductModel`, mais peut être inclus ici pour des infos complètes sur le mouvement).
+    *   Appelle `Database->select()` pour exécuter la requête.
+    *   Retourne un tableau des mouvements de stock.
+
+6.  **`StockController` -> `StockMovementModel::getCurrentStockCalculated($productId)` :**
+    *   Le modèle `StockMovement.php` exécute une requête SQL qui somme les quantités des mouvements par type pour le produit donné.
+    *   Calcule le stock actuel basé sur ces sommes.
+    *   Retourne le stock calculé.
+
+7.  **Modèles -> `Database` (plusieurs appels) :**
+    *   Exécution des requêtes SELECT.
+
+8.  **`Database` -> Modèles :**
+    *   Les résultats des requêtes sont retournés aux modèles respectifs.
+
+9.  **Modèles -> `StockController` :**
+    *   Les données du produit, la liste des mouvements, et le stock calculé sont retournés au contrôleur.
+
+10. **`StockController::history($productId)` (suite) :**
+    *   `StockController` stocke les données récupérées.
+    *   Appelle `renderView('stock/history', $data)` avec le produit, les mouvements, le stock calculé, les filtres de date, et le titre de la page.
+
+11. **`StockController` -> Vue (`stock/history.php`, `layouts/main.php`) :**
+    *   La vue `stock/history.php` est rendue.
+    *   Elle affiche les détails du produit, le stock mis en cache et le stock calculé.
+    *   Elle affiche un formulaire pour filtrer par date.
+    *   Elle itère sur le tableau des mouvements et les affiche dans un tableau HTML, indiquant le type, la quantité, la date, et les documents liés.
+
+12. **Navigateur Web :**
+    *   Affiche la page de l'historique des mouvements de stock pour le produit sélectionné.
+
+**Fin de la Séquence.**

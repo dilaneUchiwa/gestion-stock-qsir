@@ -1,0 +1,56 @@
+**Diagramme de Séquence : Liste des Produits**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `ProductsController.php`
+*   `Product.php` (Modèle)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`products/index.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Clique sur "Produits" dans la navigation (ou un lien similaire).
+    *   Le navigateur envoie une requête GET (ex: `index.php?url=products` ou `index.php?url=products/index`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le serveur reçoit la requête GET.
+    *   Le Routeur (`public/index.php`) analyse l'URL.
+    *   Il détermine que `ProductsController` et sa méthode `index()` doivent être appelés.
+
+3.  **Routeur -> `ProductsController::index()` :**
+    *   Le contrôleur est instancié.
+    *   La méthode `index()` est exécutée.
+    *   `ProductsController` appelle `ProductModel->getAll()`.
+
+4.  **`ProductsController` -> `ProductModel::getAll()` :**
+    *   Le modèle `Product.php` construit une requête SQL SELECT pour récupérer tous les produits de la table `products`.
+    *   Il interagit avec `Database.php` pour exécuter la requête.
+
+5.  **`ProductModel` -> `Database::select($sql, $params)` :**
+    *   La classe `Database` exécute la requête SQL SELECT.
+    *   Retourne un tableau des produits (ou un tableau vide).
+
+6.  **`Database` -> `ProductModel` :**
+    *   Le tableau des produits est retourné au modèle.
+
+7.  **`ProductModel` -> `ProductsController` :**
+    *   Le modèle retourne le tableau des produits au contrôleur.
+
+8.  **`ProductsController::index()` (suite) :**
+    *   `ProductsController` stocke les produits récupérés dans une variable (ex: `$products`).
+    *   `ProductsController` appelle `renderView('products/index', ['products' => $products, 'title' => 'Product List'])`.
+
+9.  **`ProductsController` -> Vue (`products/index.php`, `layouts/main.php`) :**
+    *   La vue `products/index.php` est rendue, insérée dans le layout `main.php`.
+    *   La vue itère sur le tableau `$products` et affiche chaque produit dans un tableau HTML.
+    *   Des liens pour "Voir", "Modifier", "Supprimer" sont générés pour chaque produit.
+
+10. **Navigateur Web :**
+    *   Affiche la page listant tous les produits.
+
+**Fin de la Séquence.**

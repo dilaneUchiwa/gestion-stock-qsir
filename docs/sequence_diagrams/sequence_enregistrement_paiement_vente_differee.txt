@@ -1,0 +1,67 @@
+**Diagramme de Séquence : Enregistrement d'un Paiement pour une Vente Différée**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `SaleController.php`
+*   `Sale.php` (Modèle Vente)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`sales/record_payment.php`, `sales/show.php`, `layouts/main.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Depuis la page d'une vente différée non payée (ou partiellement payée), clique sur "Enregistrer Paiement".
+    *   Requête GET (ex: `index.php?url=sale/record_payment/123` où 123 est `$saleId`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `SaleController::record_payment($saleId)`.
+
+3.  **Routeur -> `SaleController::record_payment($saleId)` :**
+    *   `SaleController` appelle `SaleModel->getByIdWithDetails($saleId)` pour obtenir les détails de la vente.
+    *   Si la vente n'est pas trouvée ou est déjà 'paid', affiche une page d'erreur ou un message approprié.
+    *   Appelle `renderView('sales/record_payment', $data)` avec les détails de la vente et les statuts de paiement autorisés.
+
+4.  **`SaleController` -> Vue (`sales/record_payment.php`) :**
+    *   La vue affiche un résumé de la vente et un formulaire pour mettre à jour le statut de paiement et la date de paiement.
+
+5.  **Utilisateur -> Navigateur Web (Formulaire) :**
+    *   Sélectionne le nouveau statut de paiement (ex: 'paid', 'partially_paid').
+    *   Entre la date de paiement.
+    *   Clique sur "Mettre à Jour Paiement".
+    *   Requête POST (ex: `index.php?url=sale/process_payment_update/123`) avec les nouvelles informations de paiement.
+
+6.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `SaleController::process_payment_update($saleId)`.
+
+7.  **Routeur -> `SaleController::process_payment_update($saleId)` :**
+    *   Récupère les données POST (`payment_status`, `payment_date`).
+    *   Valide les données (ex: statut valide, date valide).
+        *   Si validation échoue : Recharge la vue `record_payment.php` avec erreurs et données.
+    *   Si validation réussit : Appelle `SaleModel->updatePayment($saleId, $newStatus, $paymentDate)`.
+
+8.  **`SaleController` -> `SaleModel::updatePayment($saleId, $newStatus, $paymentDate)` :**
+    *   Le modèle `Sale.php` construit une requête SQL UPDATE pour la table `sales`.
+    *   Met à jour les champs `payment_status` et `payment_date` (et `updated_at`).
+    *   Appelle `Database->update()` pour exécuter la requête.
+
+9.  **`SaleModel` -> `Database::update($sql, $params)` :**
+    *   Exécution de la requête UPDATE.
+
+10. **`Database` -> `SaleModel` :**
+    *   Retourne le nombre de lignes affectées (ou succès/échec).
+
+11. **`SaleModel` -> `SaleController` :**
+    *   Retourne `true` (si succès) ou `false` (si échec).
+
+12. **`SaleController::process_payment_update($saleId)` (fin) :**
+    *   Si succès : Redirection vers `sale/show/$saleId` avec un message de succès de mise à jour du paiement.
+    *   Si échec : Recharge la vue `record_payment.php` avec un message d'erreur général.
+
+13. **Navigateur Web :**
+    *   Suit la redirection et affiche la vente mise à jour ou le formulaire avec erreurs.
+
+**Fin de la Séquence.**
