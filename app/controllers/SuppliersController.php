@@ -30,7 +30,7 @@ class SuppliersController extends Controller {
         if ($supplier) {
             $this->renderView('suppliers/show', ['supplier' => $supplier]);
         } else {
-            $this->renderView('errors/404', ['message' => "Supplier with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Fournisseur avec l'ID {$id} non trouvé."]);
         }
     }
 
@@ -57,12 +57,12 @@ class SuppliersController extends Controller {
             // Basic Server-side Validation
             $errors = [];
             if (empty($data['name'])) {
-                $errors['name'] = 'Supplier name is required.';
+                $errors['name'] = 'Le nom du fournisseur est requis.';
             }
             if (empty($data['email'])) {
-                $errors['email'] = 'Email is required.';
+                $errors['email'] = 'L\'email est requis.';
             } elseif (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors['email'] = 'Invalid email format.';
+                $errors['email'] = 'Format d\'email invalide.';
             }
             // Add more validation as needed (e.g. phone format)
 
@@ -80,7 +80,7 @@ class SuppliersController extends Controller {
                 exit;
             } else {
                 // Handle creation failure (e.g. email already exists)
-                $errors['general'] = 'Failed to create supplier. The email might already exist.';
+                $errors['general'] = "Échec de la création du fournisseur. L'e-mail existe peut-être déjà.";
                 $this->renderView('suppliers/create', ['errors' => $errors, 'data' => $data]);
             }
         } else {
@@ -99,7 +99,7 @@ class SuppliersController extends Controller {
         if ($supplier) {
             $this->renderView('suppliers/edit', ['supplier' => $supplier]);
         } else {
-             $this->renderView('errors/404', ['message' => "Supplier with ID {$id} not found for editing."]);
+             $this->renderView('errors/404', ['message' => "Fournisseur avec l'ID {$id} non trouvé pour la modification."]);
         }
     }
 
@@ -119,12 +119,12 @@ class SuppliersController extends Controller {
 
             $errors = [];
             if (empty($data['name'])) {
-                $errors['name'] = 'Supplier name is required.';
+                $errors['name'] = 'Le nom du fournisseur est requis.';
             }
             if (empty($data['email'])) {
-                $errors['email'] = 'Email is required.';
+                $errors['email'] = 'L\'email est requis.';
             } elseif (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors['email'] = 'Invalid email format.';
+                $errors['email'] = 'Format d\'email invalide.';
             }
 
             if (!empty($errors)) {
@@ -140,7 +140,7 @@ class SuppliersController extends Controller {
                 header("Location: /index.php?url=suppliers/show/{$id}"); // Adjust URL
                 exit;
             } else {
-                $errors['general'] = 'Failed to update supplier. The email might already exist or no data was changed.';
+                $errors['general'] = "Échec de la mise à jour du fournisseur. L'e-mail existe peut-être déjà ou aucune donnée n'a été modifiée.";
                 $currentSupplierData = $this->supplierModel->getById($id);
                 $this->renderView('suppliers/edit', ['errors' => $errors, 'supplier' => array_merge((array)$currentSupplierData, $data)]);
             }

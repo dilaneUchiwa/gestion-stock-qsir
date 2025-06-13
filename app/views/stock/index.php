@@ -1,25 +1,25 @@
 <?php
 // $title is set by controller
-// $title = 'Stock Overview';
+// $title = 'Aperçu du stock';
 ?>
 
-<h2>Stock Overview</h2>
+<h2>Aperçu du stock</h2>
 
 <p>
-    <a href="index.php?url=stock/create_adjustment" class="button">Create Manual Adjustment</a>
+    <a href="index.php?url=stock/create_adjustment" class="button">Créer un ajustement manuel</a>
 </p>
 
 <?php if (empty($products)): ?>
-    <p>No products found to display stock.</p>
+    <p>Aucun produit trouvé pour afficher le stock.</p>
 <?php else: ?>
     <table class="table">
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Product Name</th>
-                <th>Unit</th>
-                <th>Current Stock (Cached)</th>
-                <!-- <th>Calculated Stock (Live)</th> -->
+                <th>Nom du produit</th>
+                <th>Unité</th>
+                <th>Stock actuel (en cache)</th>
+                <!-- <th>Stock calculé (en direct)</th> -->
                 <th>Actions</th>
             </tr>
         </thead>
@@ -32,7 +32,7 @@
                 <td style="text-align: right;"><?php echo htmlspecialchars($product['quantity_in_stock']); ?></td>
                 <!-- <td style="text-align: right;"><?php // echo htmlspecialchars($product['calculated_stock'] ?? 'N/A'); ?></td> -->
                 <td>
-                    <a href="index.php?url=stock/history/<?php echo $product['id']; ?>" class="button-info">View History</a>
+                    <a href="index.php?url=stock/history/<?php echo $product['id']; ?>" class="button-info">Voir l'historique</a>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -40,4 +40,4 @@
     </table>
 <?php endif; ?>
 
-<p><small>Note: "Current Stock (Cached)" is the value stored directly with the product, updated by transactions. It should ideally match a live calculation from movements.</small></p>
+<p><small>Note : "Stock actuel (en cache)" est la valeur stockée directement avec le produit, mise à jour par les transactions. Idéalement, elle devrait correspondre à un calcul en direct à partir des mouvements.</small></p>

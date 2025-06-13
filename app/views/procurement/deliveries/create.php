@@ -1,13 +1,13 @@
 <?php
 // $title set by controller
-// $title = $poId ? "Create Delivery for PO-{$poId}" : 'Create Direct Delivery';
+// $title = $poId ? "Créer une livraison pour le BC-{$poId}" : 'Créer une livraison directe';
 ?>
 
 <h2><?php echo $title; ?></h2>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
-        <p><strong>Please correct the following errors:</strong></p>
+        <p><strong>Veuillez corriger les erreurs suivantes :</strong></p>
         <ul>
             <?php foreach ($errors as $field => $error): ?>
                 <li><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $field))); ?>: <?php echo htmlspecialchars($error); ?></li>
@@ -18,17 +18,17 @@
 
 <form action="index.php?url=delivery/store" method="POST" id="deliveryForm">
     <fieldset>
-        <legend>Delivery Details</legend>
+        <legend>Détails de la livraison</legend>
         <?php if ($purchaseOrder): ?>
             <input type="hidden" name="purchase_order_id" value="<?php echo htmlspecialchars($purchaseOrder['id']); ?>">
-            <p><strong>Receiving against Purchase Order: PO-<?php echo htmlspecialchars($purchaseOrder['id']); ?></strong></p>
-            <p>Supplier: <?php echo htmlspecialchars($purchaseOrder['supplier_name']); ?></p>
+            <p><strong>Réception pour le bon de commande : BC-<?php echo htmlspecialchars($purchaseOrder['id']); ?></strong></p>
+            <p>Fournisseur : <?php echo htmlspecialchars($purchaseOrder['supplier_name']); ?></p>
              <input type="hidden" name="supplier_id" value="<?php echo htmlspecialchars($purchaseOrder['supplier_id']); ?>">
         <?php else: ?>
             <div class="form-group">
-                <label for="supplier_id">Supplier * (for Direct Delivery)</label>
+                <label for="supplier_id">Fournisseur * (pour livraison directe)</label>
                 <select name="supplier_id" id="supplier_id" required>
-                    <option value="">Select Supplier</option>
+                    <option value="">Sélectionnez le fournisseur</option>
                     <?php foreach ($suppliers as $supplier): ?>
                         <option value="<?php echo htmlspecialchars($supplier['id']); ?>" <?php echo (isset($data['supplier_id']) && $data['supplier_id'] == $supplier['id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($supplier['name']); ?>
@@ -39,11 +39,11 @@
         <?php endif; ?>
 
         <div class="form-group">
-            <label for="delivery_date">Delivery Date *</label>
+            <label for="delivery_date">Date de livraison *</label>
             <input type="date" name="delivery_date" id="delivery_date" value="<?php echo htmlspecialchars($data['delivery_date'] ?? date('Y-m-d')); ?>" required>
         </div>
         <div class="form-group">
-            <label for="type">Delivery Type *</label>
+            <label for="type">Type de livraison *</label>
             <select name="type" id="type" required>
                 <?php
                 $currentType = $data['type'] ?? ($purchaseOrder ? 'purchase' : 'purchase'); // Default for PO is purchase
@@ -57,28 +57,28 @@
          <div class="form-group">
             <label for="is_partial">
                 <input type="checkbox" name="is_partial" id="is_partial" value="1" <?php echo (isset($data['is_partial']) && $data['is_partial']) ? 'checked' : ''; ?>>
-                Is this a partial delivery? (Manually flag if known)
+                Est-ce une livraison partielle ? (Marquer manuellement si connu)
             </label>
         </div>
         <div class="form-group">
-            <label for="notes">Notes</label>
+            <label for="notes">Remarques</label>
             <textarea name="notes" id="notes" rows="3"><?php echo htmlspecialchars($data['notes'] ?? ''); ?></textarea>
         </div>
     </fieldset>
 
     <fieldset>
-        <legend>Received Items *</legend>
+        <legend>Articles reçus *</legend>
         <table class="table" id="deliveryItemsTable">
             <thead>
                 <tr>
-                    <th>Product *</th>
-                    <th>Quantity Received *</th>
+                    <th>Produit *</th>
+                    <th>Quantité reçue *</th>
                     <?php if ($purchaseOrder): ?>
-                        <th>Originally Ordered</th>
-                        <th>Already Received</th>
-                        <th>Pending</th>
+                        <th>Commandé à l'origine</th>
+                        <th>Déjà reçu</th>
+                        <th>En attente</th>
                     <?php endif; ?>
-                    <th>Unit of Measure</th>
+                    <th>Unité de mesure</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -99,7 +99,7 @@
                     <td>
                         <input type="hidden" name="items[<?php echo $idx; ?>][purchase_order_item_id]" value="<?php echo htmlspecialchars($poItemId); ?>">
                         <select name="items[<?php echo $idx; ?>][product_id]" class="product-select" required data-index="<?php echo $idx; ?>" <?php echo ($purchaseOrder && $productId) ? 'readonly' : ''; ?>>
-                            <option value="">Select Product</option>
+                            <option value="">Sélectionnez le produit</option>
                             <?php foreach ($products as $p): ?>
                                 <option value="<?php echo htmlspecialchars($p['id']); ?>"
                                         data-unit="<?php echo htmlspecialchars($p['unit_of_measure'] ?? ''); ?>"
@@ -128,21 +128,21 @@
                     <td class="unit-display"><?php echo htmlspecialchars($productDetails['unit_of_measure'] ?? ($item['unit_of_measure'] ?? '')); ?></td>
                     <td>
                         <?php if (!$purchaseOrder): // Allow removing only for direct deliveries or non-PO items ?>
-                        <button type="button" class="remove-item-btn button-danger">Remove</button>
-                        <?php else: echo "Locked (from PO)"; endif; ?>
+                        <button type="button" class="remove-item-btn button-danger">Supprimer</button>
+                        <?php else: echo "Verrouillé (depuis BC)"; endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
         <?php if (!$purchaseOrder): // Allow adding items only for direct deliveries ?>
-        <button type="button" id="addItemBtn" class="button">Add Another Product</button>
+        <button type="button" id="addItemBtn" class="button">Ajouter un autre produit</button>
         <?php endif; ?>
     </fieldset>
 
     <div class="form-group" style="margin-top: 20px;">
-        <button type="submit" class="button">Record Delivery</button>
-        <a href="index.php?url=delivery/index" class="button-info">Cancel</a>
+        <button type="submit" class="button">Enregistrer la livraison</button>
+        <a href="index.php?url=delivery/index" class="button-info">Annuler</a>
     </div>
 </form>
 
@@ -187,13 +187,13 @@ document.addEventListener('DOMContentLoaded', function () {
             newRow.innerHTML = `
                 <td>
                     <select name="items[${itemIndex}][product_id]" class="product-select" required data-index="${itemIndex}">
-                        <option value="">Select Product</option>
+                        <option value="">Sélectionnez le produit</option>
                         ${productsData.map(p => `<option value="${p.id}" data-unit="${p.unit_of_measure}">${p.name} (Stock: ${p.quantity_in_stock})</option>`).join('')}
                     </select>
                 </td>
                 <td><input type="number" name="items[${itemIndex}][quantity_received]" class="quantity-input" value="1" min="1" required data-index="${itemIndex}"></td>
                 <td class="unit-display"></td>
-                <td><button type="button" class="remove-item-btn button-danger">Remove</button></td>
+                <td><button type="button" class="remove-item-btn button-danger">Supprimer</button></td>
             `;
             itemsTbody.appendChild(newRow);
             addRowEventListeners(newRow);
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     this.closest('.item-row').remove();
                     updateItemIndices();
                 } else {
-                    alert('A delivery must have at least one item.');
+                    alert('Une livraison doit contenir au moins un article.');
                 }
             });
             itemIndex++;
@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     this.closest('.item-row').remove();
                     updateItemIndices();
                 } else {
-                    alert('A delivery must have at least one item.');
+                    alert('Une livraison doit contenir au moins un article.');
                 }
             });
         }

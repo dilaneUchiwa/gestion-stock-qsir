@@ -1,13 +1,13 @@
 <?php
 // $title set by controller
-// $title = 'New Sale (Deferred Payment)';
+// $title = 'Nouvelle vente (paiement différé)';
 ?>
 
-<h2>New Sale (Deferred Payment)</h2>
+<h2>Nouvelle vente (paiement différé)</h2>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
-        <p><strong>Please correct the following errors:</strong></p>
+        <p><strong>Veuillez corriger les erreurs suivantes :</strong></p>
         <ul>
             <?php foreach ($errors as $field => $error): ?>
                 <li><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $field))); ?>: <?php echo htmlspecialchars($error); ?></li>
@@ -21,32 +21,32 @@
     <!-- payment_status will default to 'pending' or can be set explicitly -->
 
     <fieldset>
-        <legend>Client & Date</legend>
+        <legend>Client et date</legend>
         <div class="form-group">
-            <label for="client_id">Registered Client (Optional)</label>
+            <label for="client_id">Client enregistré (facultatif)</label>
             <select name="client_id" id="client_id">
-                <option value="">Select Registered Client</option>
+                <option value="">Sélectionner un client enregistré</option>
                 <?php foreach ($clients as $client): ?>
                     <option value="<?php echo htmlspecialchars($client['id']); ?>" <?php echo (isset($data['client_id']) && $data['client_id'] == $client['id']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($client['name']); ?> (<?php echo htmlspecialchars($client['email'] ?? 'No Email'); ?>)
+                        <?php echo htmlspecialchars($client['name']); ?> (<?php echo htmlspecialchars($client['email'] ?? 'Pas d\'email'); ?>)
                     </option>
                 <?php endforeach; ?>
             </select>
         </div>
         <div class="form-group">
-            <label for="client_name_occasional">Occasional Client Name</label>
+            <label for="client_name_occasional">Nom du client occasionnel</label>
             <input type="text" name="client_name_occasional" id="client_name_occasional" value="<?php echo htmlspecialchars($data['client_name_occasional'] ?? ''); ?>">
         </div>
         <div class="form-group">
-            <label for="sale_date">Sale Date *</label>
+            <label for="sale_date">Date de la vente *</label>
             <input type="date" name="sale_date" id="sale_date" value="<?php echo htmlspecialchars($data['sale_date'] ?? date('Y-m-d')); ?>" required>
         </div>
         <div class="form-group">
-            <label for="due_date">Payment Due Date *</label>
+            <label for="due_date">Date d'échéance du paiement *</label>
             <input type="date" name="due_date" id="due_date" value="<?php echo htmlspecialchars($data['due_date'] ?? ''); ?>" required>
         </div>
          <div class="form-group">
-            <label for="payment_status">Initial Payment Status</label>
+            <label for="payment_status">Statut de paiement initial</label>
             <select name="payment_status" id="payment_status">
                 <?php
                 $currentStatus = $data['payment_status'] ?? 'pending'; // Default to pending for deferred
@@ -62,14 +62,14 @@
     </fieldset>
 
     <fieldset>
-        <legend>Sale Items *</legend>
+        <legend>Articles de la vente *</legend>
         <table class="table" id="saleItemsTable">
             <thead>
                 <tr>
-                    <th>Product *</th>
-                    <th>Quantity *</th>
-                    <th>Unit Price *</th>
-                    <th>Subtotal</th>
+                    <th>Produit *</th>
+                    <th>Quantité *</th>
+                    <th>Prix unitaire *</th>
+                    <th>Sous-total</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -81,13 +81,13 @@
                 <tr class="item-row">
                     <td>
                         <select name="items[<?php echo $idx; ?>][product_id]" class="product-select" required data-index="<?php echo $idx; ?>">
-                            <option value="">Select Product</option>
+                            <option value="">Sélectionner un produit</option>
                             <?php foreach ($products as $product): ?>
                                 <option value="<?php echo htmlspecialchars($product['id']); ?>"
                                         data-price="<?php echo htmlspecialchars($product['selling_price'] ?? '0.00'); ?>"
                                         data-stock="<?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>"
                                         <?php echo (isset($item['product_id']) && $item['product_id'] == $product['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($product['name']); ?> (Stock: <?php echo htmlspecialchars($product['quantity_in_stock'] ?? 0); ?>)
+                                    <?php echo htmlspecialchars($product['name']); ?> (Stock : <?php echo htmlspecialchars($product['quantity_in_stock'] ?? 0); ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -95,25 +95,25 @@
                     <td><input type="number" name="items[<?php echo $idx; ?>][quantity_sold]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_sold'] ?? '1'); ?>" min="1" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
-                    <td><button type="button" class="remove-item-btn button-danger">Remove</button></td>
+                    <td><button type="button" class="remove-item-btn button-danger">Retirer</button></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <button type="button" id="addItemBtn" class="button">Add Item</button>
+        <button type="button" id="addItemBtn" class="button">Ajouter un article</button>
         <div class="form-group" style="text-align:right; margin-top:10px;">
-            <strong>Total Sale Amount: <span id="totalAmountDisplay">0.00</span></strong>
+            <strong>Montant total de la vente : <span id="totalAmountDisplay">0.00</span></strong>
         </div>
     </fieldset>
 
     <div class="form-group">
-        <label for="notes">Notes</label>
+        <label for="notes">Remarques</label>
         <textarea name="notes" id="notes" rows="3"><?php echo htmlspecialchars($data['notes'] ?? ''); ?></textarea>
     </div>
 
     <div class="form-group" style="margin-top: 20px;">
-        <button type="submit" class="button">Create Sale (Deferred Payment)</button>
-        <a href="index.php?url=sale/index" class="button-info">Cancel</a>
+        <button type="submit" class="button">Créer la vente (paiement différé)</button>
+        <a href="index.php?url=sale/index" class="button-info">Annuler</a>
     </div>
 </form>
 
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
                  if(stock === 0) quantityInput.value = 0;
             }
              if (stock === 0 && quantityInput.value === "0"){
-                 alert(`Product "${selectedOption.text.split(' (Stock:')[0]}" is out of stock.`);
+                 alert(`Le produit "${selectedOption.text.split(' (Stock :')[0]}" est en rupture de stock.`);
             }
             calculateTotalAmount();
         });
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 calculateTotalAmount();
                 updateItemIndices();
             } else {
-                alert('A sale must have at least one item.');
+                alert('Une vente doit contenir au moins un article.');
             }
         });
         if (productSelect.value) {
@@ -197,14 +197,14 @@ document.addEventListener('DOMContentLoaded', function () {
         newRow.innerHTML = `
             <td>
                 <select name="items[${itemIndex}][product_id]" class="product-select" required data-index="${itemIndex}">
-                    <option value="">Select Product</option>
-                    ${productsData.map(p => `<option value="${p.id}" data-price="${p.selling_price}" data-stock="${p.quantity_in_stock}">${p.name} (Stock: ${p.quantity_in_stock})</option>`).join('')}
+                    <option value="">Sélectionner un produit</option>
+                    ${productsData.map(p => `<option value="${p.id}" data-price="${p.selling_price}" data-stock="${p.quantity_in_stock}">${p.name} (Stock : ${p.quantity_in_stock})</option>`).join('')}
                 </select>
             </td>
             <td><input type="number" name="items[${itemIndex}][quantity_sold]" class="quantity-input" value="1" min="1" required data-index="${itemIndex}"></td>
             <td><input type="number" name="items[${itemIndex}][unit_price]" class="price-input" value="0.00" min="0" step="0.01" required data-index="${itemIndex}"></td>
             <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
-            <td><button type="button" class="remove-item-btn button-danger">Remove</button></td>
+            <td><button type="button" class="remove-item-btn button-danger">Retirer</button></td>
         `;
         itemsTbody.appendChild(newRow);
         addRowEventListeners(newRow);

@@ -27,10 +27,10 @@ class Controller {
                 $dbInstance = Database::getInstance();
                 return new $className($dbInstance);
             } else {
-                throw new Exception("Model class {$className} not found in {$modelFile}.");
+                throw new Exception("La classe du modèle {$className} n'a pas été trouvée dans {$modelFile}.");
             }
         } else {
-            throw new Exception("Model file {$modelFile} not found.");
+            throw new Exception("Le fichier du modèle {$modelFile} n'a pas été trouvé.");
         }
     }
 
@@ -76,7 +76,7 @@ class Controller {
             // Try to render a generic 404 page if the view itself is not found
             $errorViewFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/errors/404.php';
             if (file_exists($errorViewFile) && $viewName !== 'errors/404') { // Avoid infinite loop
-                extract(['message' => "View file {$viewFile} not found."]);
+                extract(['message' => "Fichier de vue {$viewFile} non trouvé."]);
                 ob_start();
                 require $errorViewFile;
                 $viewContent = ob_get_clean();
@@ -84,14 +84,14 @@ class Controller {
                 $layoutFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/layouts/main.php';
                 if (file_exists($layoutFile)) {
                     $content = $viewContent;
-                    $title = "Error - Not Found";
+                    $title = "Erreur - Non trouvé";
                     require $layoutFile;
                 } else {
                     echo $viewContent; // Fallback if layout also not found
                 }
 
             } else {
-                 throw new Exception("View file {$viewFile} not found and error page could not be rendered.");
+                 throw new Exception("Fichier de vue {$viewFile} non trouvé et la page d'erreur n'a pas pu être affichée.");
             }
         }
     }

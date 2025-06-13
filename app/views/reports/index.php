@@ -1,26 +1,26 @@
 <?php
 // $title is set by controller
-// $title = 'Available Reports';
+// $title = 'Rapports disponibles';
 ?>
 
-<h2>Available Reports</h2>
+<h2>Rapports disponibles</h2>
 
-<p>Select a report from the list below to view its details.</p>
+<p>Sélectionnez un rapport dans la liste ci-dessous pour afficher ses détails.</p>
 
 <ul class="report-list">
     <li>
-        <h4>Stock Reports</h4>
+        <h4>Rapports de stock</h4>
         <ul>
-            <li><a href="index.php?url=report/current_stock">Current Stock Report</a> - View current stock levels for all products.</li>
-            <li><a href="index.php?url=report/stock_entries">Stock Entries Report</a> - Track incoming stock movements (deliveries, adjustments in).</li>
-            <li><a href="index.php?url=report/stock_exits">Stock Exits Report</a> - Track outgoing stock movements (sales, adjustments out).</li>
+            <li><a href="index.php?url=report/current_stock">Rapport de stock actuel</a> - Voir les niveaux de stock actuels pour tous les produits.</li>
+            <li><a href="index.php?url=report/stock_entries">Rapport des entrées en stock</a> - Suivre les mouvements de stock entrants (livraisons, ajustements positifs).</li>
+            <li><a href="index.php?url=report/stock_exits">Rapport des sorties de stock</a> - Suivre les mouvements de stock sortants (ventes, ajustements négatifs).</li>
         </ul>
     </li>
     <li>
-        <h4>Sales & Purchases Reports</h4>
+        <h4>Rapports sur les ventes et les achats</h4>
         <ul>
-            <li><a href="index.php?url=report/sales_report">Sales Report</a> - Analyze sales over periods, by client, or payment status.</li>
-            <li><a href="index.php?url=report/purchases_report">Purchases Report</a> - Analyze purchase orders or deliveries over periods or by supplier.</li>
+            <li><a href="index.php?url=report/sales_report">Rapport des ventes</a> - Analyser les ventes par période, par client ou par statut de paiement.</li>
+            <li><a href="index.php?url=report/purchases_report">Rapport des achats</a> - Analyser les bons de commande ou les livraisons par période ou par fournisseur.</li>
         </ul>
     </li>
     <!-- Add more report categories or individual reports here -->

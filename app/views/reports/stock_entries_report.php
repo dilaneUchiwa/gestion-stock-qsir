@@ -5,37 +5,37 @@
 <h2><?php echo htmlspecialchars($title); ?></h2>
 
 <div style="margin-bottom: 20px;">
-    <a href="index.php?url=report/index" class="button-info">Back to Reports Index</a>
+    <a href="index.php?url=report/index" class="button-info">Retour à l'index des rapports</a>
 </div>
 
 <form method="GET" action="index.php">
     <input type="hidden" name="url" value="report/stock_entries">
     <fieldset style="margin-bottom: 20px;">
-        <legend>Filters</legend>
+        <legend>Filtres</legend>
         <div class="form-group" style="display:inline-block; margin-right:10px;">
-            <label for="period">Period:</label>
+            <label for="period">Période :</label>
             <select name="period" id="period">
-                <option value="custom" <?php echo ($filters['period'] == 'custom') ? 'selected' : ''; ?>>Custom Range</option>
-                <option value="today" <?php echo ($filters['period'] == 'today') ? 'selected' : ''; ?>>Today</option>
-                <option value="yesterday" <?php echo ($filters['period'] == 'yesterday') ? 'selected' : ''; ?>>Yesterday</option>
-                <option value="last7days" <?php echo ($filters['period'] == 'last7days') ? 'selected' : ''; ?>>Last 7 Days</option>
-                <option value="last30days" <?php echo ($filters['period'] == 'last30days') ? 'selected' : ''; ?>>Last 30 Days</option>
-                <option value="this_month" <?php echo ($filters['period'] == 'this_month') ? 'selected' : ''; ?>>This Month</option>
-                <option value="last_month" <?php echo ($filters['period'] == 'last_month') ? 'selected' : ''; ?>>Last Month</option>
+                <option value="custom" <?php echo ($filters['period'] == 'custom') ? 'selected' : ''; ?>>Plage personnalisée</option>
+                <option value="today" <?php echo ($filters['period'] == 'today') ? 'selected' : ''; ?>>Aujourd'hui</option>
+                <option value="yesterday" <?php echo ($filters['period'] == 'yesterday') ? 'selected' : ''; ?>>Hier</option>
+                <option value="last7days" <?php echo ($filters['period'] == 'last7days') ? 'selected' : ''; ?>>7 derniers jours</option>
+                <option value="last30days" <?php echo ($filters['period'] == 'last30days') ? 'selected' : ''; ?>>30 derniers jours</option>
+                <option value="this_month" <?php echo ($filters['period'] == 'this_month') ? 'selected' : ''; ?>>Ce mois-ci</option>
+                <option value="last_month" <?php echo ($filters['period'] == 'last_month') ? 'selected' : ''; ?>>Le mois dernier</option>
             </select>
         </div>
         <div class="form-group" style="display:inline-block; margin-right:10px;">
-            <label for="start_date">From:</label>
+            <label for="start_date">De :</label>
             <input type="date" name="start_date" id="start_date" value="<?php echo htmlspecialchars($filters['start_date']); ?>">
         </div>
         <div class="form-group" style="display:inline-block; margin-right:10px;">
-            <label for="end_date">To:</label>
+            <label for="end_date">À :</label>
             <input type="date" name="end_date" id="end_date" value="<?php echo htmlspecialchars($filters['end_date']); ?>">
         </div>
         <div class="form-group" style="display:inline-block; margin-right:10px;">
-            <label for="product_id">Product:</label>
+            <label for="product_id">Produit :</label>
             <select name="product_id" id="product_id">
-                <option value="">All Products</option>
+                <option value="">Tous les produits</option>
                 <?php foreach ($products as $product): ?>
                     <option value="<?php echo htmlspecialchars($product['id']); ?>" <?php echo ($filters['product_id'] == $product['id']) ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($product['name']); ?>
@@ -43,23 +43,23 @@
                 <?php endforeach; ?>
             </select>
         </div>
-        <button type="submit" class="button">Apply Filters</button>
-        <a href="index.php?url=report/stock_entries" class="button-info">Clear Filters</a>
+        <button type="submit" class="button">Appliquer les filtres</button>
+        <a href="index.php?url=report/stock_entries" class="button-info">Effacer les filtres</a>
     </fieldset>
 </form>
 
 <?php if (empty($movements)): ?>
-    <p>No stock entries found for the selected criteria.</p>
+    <p>Aucune entrée en stock trouvée pour les critères sélectionnés.</p>
 <?php else: ?>
     <table class="table">
         <thead>
             <tr>
-                <th>Date & Time</th>
-                <th>Product Name</th>
+                <th>Date et heure</th>
+                <th>Nom du produit</th>
                 <th>Type</th>
-                <th style="text-align: right;">Quantity In</th>
-                <th>Related Document</th>
-                <th>Notes</th>
+                <th style="text-align: right;">Quantité entrée</th>
+                <th>Document lié</th>
+                <th>Remarques</th>
             </tr>
         </thead>
         <tbody>
@@ -76,18 +76,18 @@
                 <td>
                     <?php
                     if ($movement['related_document_id'] && $movement['related_document_type']) {
-                        $docTypeDisplay = ucfirst(str_replace('_', ' ', str_replace('_items', '', $movement['related_document_type'])));
+                        $docTypeDisplay = ucfirst(str_replace(['_', 'items'], [' ', ''], $movement['related_document_type']));
                         $docId = htmlspecialchars($movement['related_document_id']);
                         $link = '#'; // Default link
                         if ($movement['related_document_type'] === 'delivery_items') {
                             // To link to delivery, we need delivery_id. This requires a join or fetching DeliveryItem then Delivery.
                             // For now, just display.
-                            echo "{$docTypeDisplay} Item ID: {$docId}";
+                            echo "Article de livraison ID : {$docId}";
                         } elseif ($movement['related_document_type'] === 'sale_items' && $movement['type'] === 'sale_reversal') {
                              // Similar, need sale_id from sale_item_id for a direct link.
-                            echo "{$docTypeDisplay} Item ID: {$docId} (Reversal)";
+                            echo "Article de vente ID : {$docId} (Annulation)";
                         } else {
-                             echo "{$docTypeDisplay} ID: {$docId}";
+                             echo "{$docTypeDisplay} ID : {$docId}";
                         }
                     } else {
                         echo 'N/A';
@@ -100,7 +100,7 @@
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="3" style="text-align: right;">Total Quantity In:</th>
+                <th colspan="3" style="text-align: right;">Quantité totale entrée :</th>
                 <th style="text-align: right; color: green; font-weight:bold;">+<?php echo htmlspecialchars($totalQuantityIn); ?></th>
                 <th colspan="2"></th>
             </tr>
@@ -109,7 +109,7 @@
 <?php endif; ?>
 
 <div style="margin-top: 20px;">
-    <button onclick="window.print();" class="button">Print Report</button>
+    <button onclick="window.print();" class="button">Imprimer le rapport</button>
 </div>
 
 <script>

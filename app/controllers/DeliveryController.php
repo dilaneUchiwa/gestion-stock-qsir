@@ -24,7 +24,7 @@ class DeliveryController extends Controller {
         $deliveries = $this->deliveryModel->getAllWithDetails();
         $this->renderView('procurement/deliveries/index', [
             'deliveries' => $deliveries,
-            'title' => 'Deliveries / Receptions'
+            'title' => 'Livraisons / Réceptions'
         ]);
     }
 
@@ -37,10 +37,10 @@ class DeliveryController extends Controller {
         if ($delivery) {
             $this->renderView('procurement/deliveries/show', [
                 'delivery' => $delivery,
-                'title' => 'Delivery Details'
+                'title' => 'Détails de la livraison'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Delivery with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Livraison avec l'ID {$id} non trouvée."]);
         }
     }
 
@@ -63,13 +63,13 @@ class DeliveryController extends Controller {
                 $poItems = $this->getPendingPoItems($poId, $purchaseOrder['items']);
                 if(empty($poItems) && $purchaseOrder['status'] === 'received'){
                      $this->renderView('errors/400', [ // Bad request
-                        'message' => "Purchase Order PO-{$poId} is already fully received.",
-                        'title' => 'Error Creating Delivery'
+                        'message' => "Le bon de commande BC-{$poId} est déjà entièrement réceptionné.",
+                        'title' => 'Erreur lors de la création de la livraison'
                     ]);
                     return;
                 }
             } else {
-                 $this->renderView('errors/404', ['message' => "Purchase Order with ID {$poId} not found for creating delivery."]);
+                 $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$poId} non trouvé pour créer une livraison."]);
                  return;
             }
         }
@@ -80,7 +80,7 @@ class DeliveryController extends Controller {
             'suppliers' => $suppliers, // For direct delivery
             'products' => $products,  // For adding items not on PO / direct delivery
             'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
-            'title' => $poId ? "Create Delivery for PO-{$poId}" : 'Create Direct Delivery'
+            'title' => $poId ? "Créer une livraison pour BC-{$poId}" : 'Créer une livraison directe'
         ]);
     }
 
@@ -144,10 +144,10 @@ class DeliveryController extends Controller {
             }
 
             $errors = [];
-            if (empty($data['delivery_date'])) $errors['delivery_date'] = "Delivery date is required.";
-            if (empty($data['purchase_order_id']) && empty($data['supplier_id'])) $errors['supplier_id'] = "Supplier or linked Purchase Order is required.";
-            if (empty($itemsData)) $errors['items'] = "At least one item must be received.";
-             if (!in_array($data['type'], $this->deliveryModel->allowedTypes)) $errors['type'] = "Invalid delivery type.";
+            if (empty($data['delivery_date'])) $errors['delivery_date'] = "La date de livraison est requise.";
+            if (empty($data['purchase_order_id']) && empty($data['supplier_id'])) $errors['supplier_id'] = "Un fournisseur ou un bon de commande lié est requis.";
+            if (empty($itemsData)) $errors['items'] = "Au moins un article doit être réceptionné.";
+             if (!in_array($data['type'], $this->deliveryModel->allowedTypes)) $errors['type'] = "Type de livraison non valide.";
 
             // Further validation for quantities if linked to PO
             if ($data['purchase_order_id']) {
@@ -162,21 +162,21 @@ class DeliveryController extends Controller {
                             if (isset($mapPendingPoItems[$poItemId])) {
                                 $pendingItemDetails = $mapPendingPoItems[$poItemId];
                                 if ($receivedItem['quantity_received'] > $pendingItemDetails['quantity_pending']) {
-                                    $errors['item_'.$poItemId] = "Quantity received for product '{$pendingItemDetails['product_name']}' ({$receivedItem['quantity_received']}) exceeds pending quantity ({$pendingItemDetails['quantity_pending']}).";
+                                    $errors['item_'.$poItemId] = "La quantité reçue pour le produit '{$pendingItemDetails['product_name']}' ({$receivedItem['quantity_received']}) dépasse la quantité en attente ({$pendingItemDetails['quantity_pending']}).";
                                 }
                             } else {
                                  // Item from PO, but not in pending list (already fully received or invalid PO item ID)
                                  $originalPoItem = array_values(array_filter($po['items'], fn($p) => $p['id'] == $poItemId ))[0] ?? null;
                                  if($originalPoItem && $originalPoItem['quantity_ordered'] == ($alreadyReceivedMap[$poItemId] ?? 0) ){
-                                      $errors['item_'.$poItemId] = "Product '{$originalPoItem['product_name']}' from PO is already fully received.";
+                                      $errors['item_'.$poItemId] = "Le produit '{$originalPoItem['product_name']}' du bon de commande est déjà entièrement réceptionné.";
                                  } else {
-                                      $errors['item_'.$poItemId] = "Invalid PO item ID {$poItemId} or item not pending receipt.";
+                                      $errors['item_'.$poItemId] = "ID d'article de BC invalide {$poItemId} ou article non en attente de réception.";
                                  }
                             }
                         }
                     }
                 } else {
-                    $errors['purchase_order_id'] = "Invalid Purchase Order ID specified.";
+                    $errors['purchase_order_id'] = "ID de bon de commande invalide spécifié.";
                 }
             }
 
@@ -199,7 +199,7 @@ class DeliveryController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
-                    'title' => $data['purchase_order_id'] ? "Create Delivery for PO-{$data['purchase_order_id']}" : 'Create Direct Delivery'
+                    'title' => $data['purchase_order_id'] ? "Créer une livraison pour BC-{$data['purchase_order_id']}" : 'Créer une livraison directe'
                 ]);
                 return;
             }
@@ -210,7 +210,7 @@ class DeliveryController extends Controller {
                 header("Location: /index.php?url=delivery/show/{$deliveryId}&status=created_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to create delivery. Stock update or PO status update might have failed.';
+                $errors['general'] = 'Échec de la création de la livraison. La mise à jour du stock ou du statut du BC a peut-être échoué.';
                  $purchaseOrder = null; $poItems = [];
                 if ($data['purchase_order_id']) {
                     $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($data['purchase_order_id']);
@@ -227,7 +227,7 @@ class DeliveryController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
-                    'title' => $data['purchase_order_id'] ? "Create Delivery for PO-{$data['purchase_order_id']}" : 'Create Direct Delivery'
+                    'title' => $data['purchase_order_id'] ? "Créer une livraison pour BC-{$data['purchase_order_id']}" : 'Créer une livraison directe'
                 ]);
             }
         } else {

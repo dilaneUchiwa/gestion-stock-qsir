@@ -1,11 +1,11 @@
 <?php
 // $title is set by controller
-// $title = 'Purchase Order Details';
+// $title = 'Détails du bon de commande';
 ?>
 
 <?php if (empty($purchaseOrder)): ?>
-    <p>Purchase order not found.</p>
-    <a href="index.php?url=purchaseorder/index" class="button-info">Back to List</a>
+    <p>Bon de commande non trouvé.</p>
+    <a href="index.php?url=purchaseorder/index" class="button-info">Retour à la liste</a>
     <?php return; ?>
 <?php endif; ?>
 
@@ -13,54 +13,54 @@
 // Display status messages
 if (isset($_GET['status'])) {
     $status = $_GET['status'];
-    if ($status == 'created_success') echo '<div class="alert alert-success">Purchase Order successfully created.</div>';
-    if ($status == 'updated_success') echo '<div class="alert alert-success">Purchase Order successfully updated.</div>';
-    if ($status == 'cancelled_success') echo '<div class="alert alert-success">Purchase Order successfully cancelled.</div>';
-    if ($status == 'cancelled_error') echo '<div class="alert alert-danger">Error cancelling purchase order.</div>';
-    if ($status == 'cancel_failed_status') echo '<div class="alert alert-warning">Could not cancel: Order status does not allow cancellation.</div>';
+    if ($status == 'created_success') echo '<div class="alert alert-success">Bon de commande créé avec succès.</div>';
+    if ($status == 'updated_success') echo '<div class="alert alert-success">Bon de commande mis à jour avec succès.</div>';
+    if ($status == 'cancelled_success') echo '<div class="alert alert-success">Bon de commande annulé avec succès.</div>';
+    if ($status == 'cancelled_error') echo '<div class="alert alert-danger">Erreur lors de l\'annulation du bon de commande.</div>';
+    if ($status == 'cancel_failed_status') echo '<div class="alert alert-warning">Impossible d\'annuler : le statut de la commande ne permet pas l\'annulation.</div>';
 }
 ?>
 
-<h2>Purchase Order #PO-<?php echo htmlspecialchars($purchaseOrder['id']); ?></h2>
+<h2>Bon de commande #BC-<?php echo htmlspecialchars($purchaseOrder['id']); ?></h2>
 <div style="margin-bottom: 20px;">
-    <a href="index.php?url=purchaseorder/index" class="button-info">Back to List</a>
+    <a href="index.php?url=purchaseorder/index" class="button-info">Retour à la liste</a>
     <?php if (in_array($purchaseOrder['status'], ['pending', 'partially_received'])): ?>
-        <a href="index.php?url=purchaseorder/edit/<?php echo $purchaseOrder['id']; ?>" class="button">Edit Order</a>
+        <a href="index.php?url=purchaseorder/edit/<?php echo $purchaseOrder['id']; ?>" class="button">Modifier la commande</a>
     <?php endif; ?>
      <?php if (in_array($purchaseOrder['status'], ['pending', 'partially_received'])): ?>
-        <form action="index.php?url=purchaseorder/cancel/<?php echo $purchaseOrder['id']; ?>" method="POST" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Are you sure you want to cancel this PO?');">
-            <button type="submit" class="button-danger">Cancel Order</button>
+        <form action="index.php?url=purchaseorder/cancel/<?php echo $purchaseOrder['id']; ?>" method="POST" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Êtes-vous sûr de vouloir annuler ce BC ?');">
+            <button type="submit" class="button-danger">Annuler la commande</button>
         </form>
     <?php endif; ?>
     <!-- Link to create delivery for this PO -->
     <?php if (in_array($purchaseOrder['status'], ['pending', 'partially_received'])): ?>
-        <a href="index.php?url=delivery/create&po_id=<?php echo $purchaseOrder['id']; ?>" class="button" style="background-color: #007bff; margin-left:10px;">Receive Items</a>
+        <a href="index.php?url=delivery/create&po_id=<?php echo $purchaseOrder['id']; ?>" class="button" style="background-color: #007bff; margin-left:10px;">Recevoir les articles</a>
     <?php endif; ?>
 </div>
 
-<h3>Order Details</h3>
+<h3>Détails de la commande</h3>
 <table class="table" style="width:50%; margin-bottom:20px;">
-    <tr><th>Supplier:</th><td><?php echo htmlspecialchars($purchaseOrder['supplier_name']); ?> (ID: <?php echo htmlspecialchars($purchaseOrder['supplier_id']); ?>)</td></tr>
-    <tr><th>Order Date:</th><td><?php echo htmlspecialchars($purchaseOrder['order_date']); ?></td></tr>
-    <tr><th>Expected Delivery Date:</th><td><?php echo htmlspecialchars($purchaseOrder['expected_delivery_date'] ?? 'N/A'); ?></td></tr>
-    <tr><th>Status:</th><td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $purchaseOrder['status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $purchaseOrder['status']))); ?></span></td></tr>
-    <tr><th>Notes:</th><td><?php echo nl2br(htmlspecialchars($purchaseOrder['notes'] ?? 'N/A')); ?></td></tr>
-    <tr><th>Created At:</th><td><?php echo htmlspecialchars($purchaseOrder['created_at']); ?></td></tr>
-    <tr><th>Last Updated:</th><td><?php echo htmlspecialchars($purchaseOrder['updated_at']); ?></td></tr>
+    <tr><th>Fournisseur :</th><td><?php echo htmlspecialchars($purchaseOrder['supplier_name']); ?> (ID: <?php echo htmlspecialchars($purchaseOrder['supplier_id']); ?>)</td></tr>
+    <tr><th>Date de commande :</th><td><?php echo htmlspecialchars($purchaseOrder['order_date']); ?></td></tr>
+    <tr><th>Date de livraison prévue :</th><td><?php echo htmlspecialchars($purchaseOrder['expected_delivery_date'] ?? 'N/A'); ?></td></tr>
+    <tr><th>Statut :</th><td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $purchaseOrder['status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $purchaseOrder['status']))); ?></span></td></tr>
+    <tr><th>Remarques :</th><td><?php echo nl2br(htmlspecialchars($purchaseOrder['notes'] ?? 'N/A')); ?></td></tr>
+    <tr><th>Créé le :</th><td><?php echo htmlspecialchars($purchaseOrder['created_at']); ?></td></tr>
+    <tr><th>Dernière mise à jour :</th><td><?php echo htmlspecialchars($purchaseOrder['updated_at']); ?></td></tr>
 </table>
 
-<h3>Order Items</h3>
+<h3>Articles de la commande</h3>
 <?php if (empty($purchaseOrder['items'])): ?>
-    <p>No items found for this purchase order.</p>
+    <p>Aucun article trouvé pour ce bon de commande.</p>
 <?php else: ?>
     <table class="table">
         <thead>
             <tr>
-                <th>Product ID</th>
-                <th>Product Name</th>
-                <th>Quantity Ordered</th>
-                <th>Unit Price</th>
-                <th>Subtotal</th>
+                <th>ID Produit</th>
+                <th>Nom du produit</th>
+                <th>Quantité commandée</th>
+                <th>Prix unitaire</th>
+                <th>Sous-total</th>
             </tr>
         </thead>
         <tbody>
@@ -82,12 +82,12 @@ if (isset($_GET['status'])) {
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="4" style="text-align:right;">Order Total (from DB):</th>
+                <th colspan="4" style="text-align:right;">Total de la commande (BD) :</th>
                 <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format($purchaseOrder['total_amount'], 2)); ?></strong></td>
             </tr>
             <?php if (abs($calculatedTotal - $purchaseOrder['total_amount']) > 0.001) : // Check if calculated total matches stored total ?>
             <tr>
-                <th colspan="4" style="text-align:right; color: orange;">Calculated Total (from items):</th>
+                <th colspan="4" style="text-align:right; color: orange;">Total calculé (articles) :</th>
                 <td style="text-align: right; color: orange;"><strong><?php echo htmlspecialchars(number_format($calculatedTotal, 2)); ?></strong></td>
             </tr>
             <?php endif; ?>

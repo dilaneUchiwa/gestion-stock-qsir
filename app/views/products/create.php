@@ -1,10 +1,10 @@
-<?php $title = 'Add New Product'; ?>
+<?php $title = 'Ajouter un nouveau produit'; ?>
 
-<h2>Add New Product</h2>
+<h2>Ajouter un nouveau produit</h2>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
-        <p><strong>Please correct the following errors:</strong></p>
+        <p><strong>Veuillez corriger les erreurs suivantes :</strong></p>
         <ul>
             <?php foreach ($errors as $field => $error): ?>
                 <li><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $field))); ?>: <?php echo htmlspecialchars($error); ?></li>
@@ -15,9 +15,9 @@
 
 <form action="index.php?url=products/store" method="POST">
     <fieldset>
-        <legend>Product Information</legend>
+        <legend>Informations sur le produit</legend>
         <div class="form-group">
-            <label for="name">Product Name *</label>
+            <label for="name">Nom du produit *</label>
             <input type="text" name="name" id="name" value="<?php echo htmlspecialchars($data['name'] ?? ''); ?>" required>
         </div>
         <div class="form-group">
@@ -25,9 +25,9 @@
             <textarea name="description" id="description" rows="4"><?php echo htmlspecialchars($data['description'] ?? ''); ?></textarea>
         </div>
         <div class="form-group">
-            <label for="parent_id">Parent Product (if applicable)</label>
+            <label for="parent_id">Produit parent (le cas échéant)</label>
             <select name="parent_id" id="parent_id">
-                <option value="">None</option>
+                <option value="">Aucun</option>
                 <?php if (!empty($products)): // This $products variable is for parent selection, passed by ProductsController@create ?>
                     <?php foreach ($products as $p): ?>
                         <option value="<?php echo htmlspecialchars($p['id']); ?>" <?php echo (isset($data['parent_id']) && $data['parent_id'] == $p['id']) ? 'selected' : ''; ?>>
@@ -38,30 +38,30 @@
             </select>
         </div>
         <div class="form-group">
-            <label for="unit_of_measure">Unit of Measure</label>
-            <input type="text" name="unit_of_measure" id="unit_of_measure" value="<?php echo htmlspecialchars($data['unit_of_measure'] ?? ''); ?>" placeholder="e.g., piece, kg, liter">
+            <label for="unit_of_measure">Unité de mesure</label>
+            <input type="text" name="unit_of_measure" id="unit_of_measure" value="<?php echo htmlspecialchars($data['unit_of_measure'] ?? ''); ?>" placeholder="ex: pièce, kg, litre">
         </div>
     </fieldset>
 
     <fieldset>
-        <legend>Pricing & Stock</legend>
+        <legend>Tarification et stock</legend>
         <div class="form-group">
-            <label for="quantity_in_stock">Initial Quantity in Stock</label>
+            <label for="quantity_in_stock">Quantité initiale en stock</label>
             <input type="number" name="quantity_in_stock" id="quantity_in_stock" value="<?php echo htmlspecialchars($data['quantity_in_stock'] ?? '0'); ?>" min="0">
-            <small>This will create an 'initial_stock' movement. Further stock changes should be done via Deliveries, Sales, or Adjustments.</small>
+            <small>Cela créera un mouvement de 'stock_initial'. Les modifications ultérieures du stock doivent être effectuées via les livraisons, les ventes ou les ajustements.</small>
         </div>
         <div class="form-group">
-            <label for="purchase_price">Purchase Price</label>
+            <label for="purchase_price">Prix d'achat</label>
             <input type="number" name="purchase_price" id="purchase_price" value="<?php echo htmlspecialchars($data['purchase_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>
         <div class="form-group">
-            <label for="selling_price">Selling Price</label>
+            <label for="selling_price">Prix de vente</label>
             <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($data['selling_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>
     </fieldset>
 
     <div class="form-group mt-3">
-        <button type="submit" class="button button-success">Add Product</button>
-        <a href="index.php?url=products" class="button button-info">Cancel</a>
+        <button type="submit" class="button button-success">Ajouter le produit</button>
+        <a href="index.php?url=products" class="button button-info">Annuler</a>
     </div>
 </form>

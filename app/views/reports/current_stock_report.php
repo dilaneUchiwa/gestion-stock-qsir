@@ -5,34 +5,34 @@
 <h2><?php echo htmlspecialchars($title); ?></h2>
 
 <div style="margin-bottom: 20px;">
-    <a href="index.php?url=report/index" class="button-info">Back to Reports Index</a>
+    <a href="index.php?url=report/index" class="button-info">Retour à l'index des rapports</a>
 </div>
 
 <form method="GET" action="index.php">
     <input type="hidden" name="url" value="report/current_stock">
     <fieldset style="margin-bottom: 20px;">
-        <legend>Filters</legend>
+        <legend>Filtres</legend>
         <div class="form-group" style="display:inline-block; margin-right:10px;">
-            <label for="low_stock_threshold">Show products with stock at or below:</label>
-            <input type="number" name="low_stock_threshold" id="low_stock_threshold" value="<?php echo htmlspecialchars($low_stock_threshold ?? ''); ?>" min="0" placeholder="e.g., 10">
+            <label for="low_stock_threshold">Afficher les produits avec un stock inférieur ou égal à :</label>
+            <input type="number" name="low_stock_threshold" id="low_stock_threshold" value="<?php echo htmlspecialchars($low_stock_threshold ?? ''); ?>" min="0" placeholder="ex: 10">
         </div>
-        <button type="submit" class="button">Apply Filter</button>
-        <a href="index.php?url=report/current_stock" class="button-info">Clear Filter</a>
+        <button type="submit" class="button">Appliquer le filtre</button>
+        <a href="index.php?url=report/current_stock" class="button-info">Effacer le filtre</a>
     </fieldset>
 </form>
 
 <?php if (empty($products)): ?>
-    <p>No products found<?php echo $low_stock_threshold !== null ? ' matching the filter criteria' : ''; ?>.</p>
+    <p>Aucun produit trouvé<?php echo $low_stock_threshold !== null ? ' correspondant aux critères du filtre' : ''; ?>.</p>
 <?php else: ?>
     <table class="table">
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Product Name</th>
-                <th>Unit of Measure</th>
-                <th style="text-align: right;">Current Stock</th>
-                <th>Purchase Price</th>
-                <th>Selling Price</th>
+                <th>Nom du produit</th>
+                <th>Unité de mesure</th>
+                <th style="text-align: right;">Stock actuel</th>
+                <th>Prix d'achat</th>
+                <th>Prix de vente</th>
             </tr>
         </thead>
         <tbody>
@@ -54,9 +54,9 @@
         .negative-stock-alert { background-color: #f8d7da; color: #721c24; /* Light red with dark text */ }
         .negative-stock-alert a { color: #721c24; }
     </style>
-    <p><small>Click on product name to view its stock movement history.</small></p>
+    <p><small>Cliquez sur le nom du produit pour voir l'historique de ses mouvements de stock.</small></p>
 <?php endif; ?>
 
 <div style="margin-top: 20px;">
-    <button onclick="window.print();" class="button">Print Report</button>
+    <button onclick="window.print();" class="button">Imprimer le rapport</button>
 </div>

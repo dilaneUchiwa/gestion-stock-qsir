@@ -14,7 +14,7 @@ class ReportController extends Controller {
      */
     public function index() {
         $this->renderView('reports/index', [
-            'title' => 'Available Reports'
+            'title' => 'Rapports disponibles'
         ]);
     }
 
@@ -39,7 +39,7 @@ class ReportController extends Controller {
         $this->renderView('reports/current_stock_report', [
             'products' => $products,
             'low_stock_threshold' => $filter_low_stock_threshold,
-            'title' => 'Current Stock Report'
+            'title' => 'Rapport de stock actuel'
         ]);
     }
 
@@ -102,7 +102,7 @@ class ReportController extends Controller {
             'movements' => $movements,
             'filters' => $filters,
             'products' => $products,
-            'title' => 'Stock Entries Report'
+            'title' => 'Rapport des entrées en stock'
         ]);
     }
 
@@ -145,7 +145,7 @@ class ReportController extends Controller {
             'movements' => $movements,
             'filters' => $filters,
             'products' => $products,
-            'title' => 'Stock Exits Report'
+            'title' => 'Rapport des sorties de stock'
         ]);
     }
 
@@ -187,7 +187,7 @@ class ReportController extends Controller {
             'filters' => $filters,
             'clients' => $clients,
             'allowedPaymentStatuses' => $saleModel->allowedPaymentStatuses,
-            'title' => 'Sales Report'
+            'title' => 'Rapport des ventes'
         ]);
     }
 
@@ -229,7 +229,7 @@ class ReportController extends Controller {
             'filters' => $filters,
             'suppliers' => $suppliers,
             'allowedStatuses' => $purchaseOrderModel->allowedStatuses, // from PurchaseOrder model
-            'title' => 'Purchases Report (Based on POs)'
+            'title' => 'Rapport des achats (basé sur les BC)'
         ]);
     }
 }

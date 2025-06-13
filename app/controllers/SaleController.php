@@ -19,7 +19,7 @@ class SaleController extends Controller {
         $sales = $this->saleModel->getAllWithClientDetails();
         $this->renderView('sales/index', [
             'sales' => $sales,
-            'title' => 'Sales History'
+            'title' => 'Historique des ventes'
         ]);
     }
 
@@ -28,10 +28,10 @@ class SaleController extends Controller {
         if ($sale) {
             $this->renderView('sales/show', [
                 'sale' => $sale,
-                'title' => 'Sale Details'
+                'title' => 'Détails de la vente'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Sale with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Vente avec l'ID {$id} non trouvée."]);
         }
     }
 
@@ -40,7 +40,7 @@ class SaleController extends Controller {
         $products = $this->productModel->getAll(); // For product selection, include selling_price
 
         $viewName = ($paymentType === 'immediate') ? 'sales/create_immediate' : 'sales/create_deferred';
-        $title = ($paymentType === 'immediate') ? 'New Sale (Immediate Payment)' : 'New Sale (Deferred Payment)';
+        $title = ($paymentType === 'immediate') ? 'Nouvelle vente (paiement immédiat)' : 'Nouvelle vente (paiement différé)';
 
         $this->renderView($viewName, [
             'clients' => $clients,
@@ -67,7 +67,7 @@ class SaleController extends Controller {
             $paymentType = $_POST['payment_type'] ?? null;
             if (!in_array($paymentType, $this->saleModel->allowedPaymentTypes)) {
                 // Should not happen if form is correct, but good to check.
-                $this->_renderCreateForm('immediate', $_POST, ['payment_type' => 'Invalid payment type specified.'], $_POST['items'] ?? []);
+                $this->_renderCreateForm('immediate', $_POST, ['payment_type' => 'Type de paiement non valide spécifié.'], $_POST['items'] ?? []);
                 return;
             }
 
@@ -97,16 +97,16 @@ class SaleController extends Controller {
             // Validation
             $errors = [];
             if (empty($data['client_id']) && empty($data['client_name_occasional'])) {
-                $errors['client'] = "A client (registered or occasional) must be specified.";
+                $errors['client'] = "Un client (enregistré ou occasionnel) doit être spécifié.";
             }
             if (!empty($data['client_id']) && !empty($data['client_name_occasional'])) {
-                 $errors['client'] = "Specify either a registered client or an occasional client name, not both.";
+                 $errors['client'] = "Spécifiez soit un client enregistré, soit un nom de client occasionnel, mais pas les deux.";
             }
             if ($paymentType === 'deferred' && empty($data['due_date'])) {
-                $errors['due_date'] = "Due date is required for deferred payments.";
+                $errors['due_date'] = "La date d'échéance est requise pour les paiements différés.";
             }
             if (empty($itemsData)) {
-                $errors['items'] = "At least one product must be added to the sale.";
+                $errors['items'] = "Au moins un produit doit être ajouté à la vente.";
             }
             // Additional validation for unit price, quantity > 0 already handled in itemsData loop.
 
@@ -123,7 +123,7 @@ class SaleController extends Controller {
                 exit;
             } else {
                 // An error message string was returned (e.g. "Insufficient stock...")
-                $errors['general'] = $saleIdOrError ?: 'Failed to create sale. Check stock or other details.';
+                $errors['general'] = $saleIdOrError ?: 'Échec de la création de la vente. Vérifiez le stock ou d\'autres détails.';
                 $this->_renderCreateForm($paymentType, array_merge($_POST, $data), $errors, $itemsData);
             }
         } else {
@@ -136,18 +136,18 @@ class SaleController extends Controller {
     public function record_payment($saleId) {
         $sale = $this->saleModel->getByIdWithDetails($saleId);
         if (!$sale) {
-            $this->renderView('errors/404', ['message' => "Sale with ID {$saleId} not found."]);
+            $this->renderView('errors/404', ['message' => "Vente avec l'ID {$saleId} non trouvée."]);
             return;
         }
         if ($sale['payment_status'] === 'paid') {
-             $this->renderView('errors/400', ['message' => "Sale with ID {$saleId} is already marked as paid."]);
+             $this->renderView('errors/400', ['message' => "La vente avec l'ID {$saleId} est déjà marquée comme payée."]);
             return;
         }
 
         $this->renderView('sales/record_payment', [
             'sale' => $sale,
             'allowedPaymentStatuses' => array_filter($this->saleModel->allowedPaymentStatuses, fn($s) => in_array($s, ['paid', 'partially_paid', 'pending'])), // Limit options
-            'title' => "Record Payment for Sale #SA-{$saleId}"
+            'title' => "Enregistrer le paiement pour la vente #VE-{$saleId}"
         ]);
     }
 
@@ -155,7 +155,7 @@ class SaleController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sale = $this->saleModel->getById($saleId);
             if (!$sale) {
-                $this->renderView('errors/404', ['message' => "Sale with ID {$saleId} not found."]); return;
+                $this->renderView('errors/404', ['message' => "Vente avec l'ID {$saleId} non trouvée."]); return;
             }
 
             $newStatus = $_POST['payment_status'] ?? null;
@@ -163,10 +163,10 @@ class SaleController extends Controller {
 
             $errors = [];
             if (!in_array($newStatus, ['paid', 'partially_paid', 'pending'])) { // Valid statuses for this action
-                $errors['payment_status'] = "Invalid payment status selected.";
+                $errors['payment_status'] = "Statut de paiement sélectionné non valide.";
             }
             if (empty($paymentDate) && ($newStatus === 'paid' || $newStatus === 'partially_paid')) {
-                 $errors['payment_date'] = "Payment date is required if status is Paid or Partially Paid.";
+                 $errors['payment_date'] = "La date de paiement est requise si le statut est Payé ou Partiellement payé.";
             }
 
 
@@ -177,7 +177,7 @@ class SaleController extends Controller {
                     'errors' => $errors,
                     'data' => $_POST, // Submitted data
                     'allowedPaymentStatuses' => array_filter($this->saleModel->allowedPaymentStatuses, fn($s) => in_array($s, ['paid', 'partially_paid', 'pending'])),
-                    'title' => "Record Payment for Sale #SA-{$saleId}"
+                    'title' => "Enregistrer le paiement pour la vente #VE-{$saleId}"
                 ]);
                 return;
             }
@@ -186,14 +186,14 @@ class SaleController extends Controller {
                 header("Location: /index.php?url=sale/show/{$saleId}&status=payment_updated");
                 exit;
             } else {
-                $errors['general'] = "Failed to update payment status for Sale #SA-{$saleId}.";
+                $errors['general'] = "Échec de la mise à jour du statut de paiement pour la vente #VE-{$saleId}.";
                 $saleDetails = $this->saleModel->getByIdWithDetails($saleId);
                  $this->renderView('sales/record_payment', [
                     'sale' => $saleDetails,
                     'errors' => $errors,
                     'data' => $_POST,
                     'allowedPaymentStatuses' => array_filter($this->saleModel->allowedPaymentStatuses, fn($s) => in_array($s, ['paid', 'partially_paid', 'pending'])),
-                    'title' => "Record Payment for Sale #SA-{$saleId}"
+                    'title' => "Enregistrer le paiement pour la vente #VE-{$saleId}"
                 ]);
             }
         } else {

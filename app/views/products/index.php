@@ -1,29 +1,29 @@
-<?php $title = 'Product List'; ?>
+<?php $title = 'Liste des produits'; ?>
 
-<h2>Product List</h2>
+<h2>Liste des produits</h2>
 
 <?php if (isset($_GET['status']) && $_GET['status'] == 'deleted'): ?>
-    <div class="alert alert-success">Product successfully deleted.</div>
+    <div class="alert alert-success">Produit supprimé avec succès.</div>
 <?php endif; ?>
 <?php if (isset($_GET['status']) && $_GET['status'] == 'error_deleting'): ?>
-    <div class="alert alert-danger">Error deleting product.</div>
+    <div class="alert alert-danger">Erreur lors de la suppression du produit.</div>
 <?php endif; ?>
 
-<p><a href="index.php?url=products/create" class="button button-success">Add New Product</a></p>
+<p><a href="index.php?url=products/create" class="button button-success">Ajouter un nouveau produit</a></p>
 
 <?php if (empty($products)): ?>
-    <p>No products found.</p>
+    <p>Aucun produit trouvé.</p>
 <?php else: ?>
 <div class="table-responsive-container">
     <table class="table">
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Name</th>
-                <th>Unit</th>
-                <th>Qty in Stock</th>
-                <th>Purchase Price</th>
-                <th class="text-right">Selling Price</th>
+                <th>Nom</th>
+                <th>Unité</th>
+                <th>Qté en stock</th>
+                <th>Prix d'achat</th>
+                <th class="text-right">Prix de vente</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -37,10 +37,10 @@
                 <td class="text-right"><?php echo htmlspecialchars(number_format($product['purchase_price'] ?? 0, 2)); ?></td>
                 <td class="text-right"><?php echo htmlspecialchars(number_format($product['selling_price'] ?? 0, 2)); ?></td>
                 <td>
-                    <a href="index.php?url=products/show/<?php echo $product['id']; ?>" class="button button-info btn-sm">View</a>
-                    <a href="index.php?url=products/edit/<?php echo $product['id']; ?>" class="button btn-sm">Edit</a>
-                    <form action="index.php?url=products/destroy/<?php echo $product['id']; ?>" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this product? This action cannot be undone and might affect related records.');">
-                        <button type="submit" class="button button-danger btn-sm">Delete</button>
+                    <a href="index.php?url=products/show/<?php echo $product['id']; ?>" class="button button-info btn-sm">Voir</a>
+                    <a href="index.php?url=products/edit/<?php echo $product['id']; ?>" class="button btn-sm">Modifier</a>
+                    <form action="index.php?url=products/destroy/<?php echo $product['id']; ?>" method="POST" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible et pourrait affecter les enregistrements associés.');">
+                        <button type="submit" class="button button-danger btn-sm">Supprimer</button>
                     </form>
                 </td>
             </tr>

@@ -25,7 +25,7 @@ class StockController extends Controller {
         // }
         $this->renderView('stock/index', [
             'products' => $products,
-            'title' => 'Stock Overview'
+            'title' => 'Aperçu du stock'
         ]);
     }
 
@@ -36,7 +36,7 @@ class StockController extends Controller {
     public function history($productId) {
         $product = $this->productModel->getById($productId);
         if (!$product) {
-            $this->renderView('errors/404', ['message' => "Product with ID {$productId} not found."]);
+            $this->renderView('errors/404', ['message' => "Produit avec l'ID {$productId} non trouvé."]);
             return;
         }
 
@@ -57,7 +57,7 @@ class StockController extends Controller {
             'movements' => $movements,
             'calculatedStock' => $calculatedStock, // To compare with product.quantity_in_stock
             'dateRange' => $dateRange, // Pass to view for display or form repopulation
-            'title' => 'Stock Movement History for ' . htmlspecialchars($product['name'])
+            'title' => 'Historique des mouvements de stock pour ' . htmlspecialchars($product['name'])
         ]);
     }
 
@@ -76,7 +76,7 @@ class StockController extends Controller {
         $this->renderView('stock/create_adjustment', [
             'products' => $products,
             'adjustmentTypes' => ['adjustment_in', 'adjustment_out'], // Example types
-            'title' => 'Create Stock Adjustment'
+            'title' => 'Créer un ajustement de stock'
         ]);
     }
 
@@ -88,17 +88,17 @@ class StockController extends Controller {
             $notes = $_POST['notes'] ?? '';
 
             $errors = [];
-            if (empty($productId)) $errors['product_id'] = "Product is required.";
+            if (empty($productId)) $errors['product_id'] = "Le produit est requis.";
             if (empty($adjustmentType) || !in_array($adjustmentType, ['adjustment_in', 'adjustment_out'])) {
-                $errors['adjustment_type'] = "Valid adjustment type is required.";
+                $errors['adjustment_type'] = "Un type d'ajustement valide est requis.";
             }
-            if ($quantity <= 0) $errors['quantity'] = "Quantity must be a positive number.";
+            if ($quantity <= 0) $errors['quantity'] = "La quantité doit être un nombre positif.";
 
             $product = $this->productModel->getById($productId);
-            if (!$product) $errors['product_id'] = "Selected product not found.";
+            if (!$product) $errors['product_id'] = "Le produit sélectionné n'a pas été trouvé.";
 
             if ($adjustmentType === 'adjustment_out' && $product && $product['quantity_in_stock'] < $quantity) {
-                $errors['quantity'] = "Adjustment quantity ({$quantity}) exceeds current stock ({$product['quantity_in_stock']}) for product '{$product['name']}'.";
+                $errors['quantity'] = "La quantité d'ajustement ({$quantity}) dépasse le stock actuel ({$product['quantity_in_stock']}) pour le produit '{$product['name']}'.";
             }
 
             if (!empty($errors)) {
@@ -108,7 +108,7 @@ class StockController extends Controller {
                     'adjustmentTypes' => ['adjustment_in', 'adjustment_out'],
                     'errors' => $errors,
                     'data' => $_POST,
-                    'title' => 'Create Stock Adjustment'
+                    'title' => 'Créer un ajustement de stock'
                 ]);
                 return;
             }
@@ -119,14 +119,14 @@ class StockController extends Controller {
                 header("Location: /index.php?url=stock/history/{$productId}&status=adjustment_success");
                 exit;
             } else {
-                $errors['general'] = "Failed to create stock adjustment.";
+                $errors['general'] = "Échec de la création de l'ajustement de stock.";
                  $products = $this->productModel->getAll();
                 $this->renderView('stock/create_adjustment', [
                     'products' => $products,
                     'adjustmentTypes' => ['adjustment_in', 'adjustment_out'],
                     'errors' => $errors,
                     'data' => $_POST,
-                    'title' => 'Create Stock Adjustment'
+                    'title' => 'Créer un ajustement de stock'
                 ]);
             }
         } else {

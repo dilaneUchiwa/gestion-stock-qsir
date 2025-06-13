@@ -29,7 +29,7 @@ class ClientsController extends Controller {
         if ($client) {
             $this->renderView('clients/show', ['client' => $client]);
         } else {
-            $this->renderView('errors/404', ['message' => "Client with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Client avec l'ID {$id} non trouvé."]);
         }
     }
 
@@ -55,13 +55,13 @@ class ClientsController extends Controller {
 
             $errors = [];
             if (empty($data['name'])) {
-                $errors['name'] = 'Client name is required.';
+                $errors['name'] = 'Le nom du client est requis.';
             }
             if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors['email'] = 'Invalid email format.';
+                $errors['email'] = "Format d'email invalide.";
             }
             if (!in_array($data['client_type'], $this->clientModel->allowedClientTypes)) {
-                 $errors['client_type'] = 'Invalid client type selected.';
+                 $errors['client_type'] = 'Type de client sélectionné invalide.';
             }
             // Add more validation as needed
 
@@ -76,7 +76,7 @@ class ClientsController extends Controller {
                 header("Location: /index.php?url=clients&status=created_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to create client. The email might already exist.';
+                $errors['general'] = "Échec de la création du client. L'e-mail existe peut-être déjà.";
                 $this->renderView('clients/create', ['errors' => $errors, 'data' => $data, 'allowedClientTypes' => $this->clientModel->allowedClientTypes]);
             }
         } else {
@@ -94,7 +94,7 @@ class ClientsController extends Controller {
         if ($client) {
             $this->renderView('clients/edit', ['client' => $client, 'allowedClientTypes' => $this->clientModel->allowedClientTypes]);
         } else {
-             $this->renderView('errors/404', ['message' => "Client with ID {$id} not found for editing."]);
+             $this->renderView('errors/404', ['message' => "Client avec l'ID {$id} non trouvé pour la modification."]);
         }
     }
 
@@ -114,13 +114,13 @@ class ClientsController extends Controller {
 
             $errors = [];
             if (empty($data['name'])) {
-                $errors['name'] = 'Client name is required.';
+                $errors['name'] = 'Le nom du client est requis.';
             }
             if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors['email'] = 'Invalid email format.';
+                $errors['email'] = "Format d'email invalide.";
             }
              if (!in_array($data['client_type'], $this->clientModel->allowedClientTypes)) {
-                 $errors['client_type'] = 'Invalid client type selected.';
+                 $errors['client_type'] = 'Type de client sélectionné invalide.';
             }
 
 
@@ -136,7 +136,7 @@ class ClientsController extends Controller {
                 header("Location: /index.php?url=clients/show/{$id}&status=updated_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to update client. The email might already exist or no data was changed.';
+                $errors['general'] = "Échec de la mise à jour du client. L\'e-mail existe peut-être déjà ou aucune donnée n\'a été modifiée.";
                 $currentClientData = $this->clientModel->getById($id);
                 $this->renderView('clients/edit', ['errors' => $errors, 'client' => array_merge((array)$currentClientData, $data), 'allowedClientTypes' => $this->clientModel->allowedClientTypes]);
             }

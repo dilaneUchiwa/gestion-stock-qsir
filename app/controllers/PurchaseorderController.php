@@ -21,7 +21,7 @@ class PurchaseorderController extends Controller {
      */
     public function index() {
         $purchaseOrders = $this->purchaseOrderModel->getAllWithSupplier();
-        $this->renderView('procurement/purchase_orders/index', ['purchaseOrders' => $purchaseOrders, 'title' => 'Purchase Orders']);
+        $this->renderView('procurement/purchase_orders/index', ['purchaseOrders' => $purchaseOrders, 'title' => 'Bons de commande']);
     }
 
     /**
@@ -33,10 +33,10 @@ class PurchaseorderController extends Controller {
         if ($purchaseOrder) {
             $this->renderView('procurement/purchase_orders/show', [
                 'purchaseOrder' => $purchaseOrder,
-                'title' => 'Purchase Order Details'
+                'title' => 'Détails du bon de commande'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Purchase Order with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$id} non trouvé."]);
         }
     }
 
@@ -50,7 +50,7 @@ class PurchaseorderController extends Controller {
             'suppliers' => $suppliers,
             'products' => $products,
             'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-            'title' => 'Create Purchase Order'
+            'title' => 'Créer un bon de commande'
         ]);
     }
 
@@ -82,12 +82,12 @@ class PurchaseorderController extends Controller {
 
             // Validation
             $errors = [];
-            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Supplier is required.";
-            if (empty($data['order_date'])) $errors['order_date'] = "Order date is required.";
-            if (empty($itemsData)) $errors['items'] = "At least one item is required.";
+            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
+            if (empty($data['order_date'])) $errors['order_date'] = "La date de commande est requise.";
+            if (empty($itemsData)) $errors['items'] = "Au moins un article est requis.";
             foreach($itemsData as $idx => $item) {
-                if($item['quantity_ordered'] <= 0) $errors["item_{$idx}_qty"] = "Item quantity must be positive.";
-                if($item['unit_price'] < 0) $errors["item_{$idx}_price"] = "Item unit price cannot be negative.";
+                if($item['quantity_ordered'] <= 0) $errors["item_{$idx}_qty"] = "La quantité de l'article doit être positive.";
+                if($item['unit_price'] < 0) $errors["item_{$idx}_price"] = "Le prix unitaire de l'article ne peut pas être négatif.";
             }
 
 
@@ -101,7 +101,7 @@ class PurchaseorderController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-                    'title' => 'Create Purchase Order'
+                    'title' => 'Créer un bon de commande'
                 ]);
                 return;
             }
@@ -112,7 +112,7 @@ class PurchaseorderController extends Controller {
                 header("Location: /index.php?url=purchaseorder/show/{$poId}&status=created_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to create purchase order.';
+                $errors['general'] = 'Échec de la création du bon de commande.';
                 $suppliers = $this->supplierModel->getAll();
                 $products = $this->productModel->getAll();
                 $this->renderView('procurement/purchase_orders/create', [
@@ -122,7 +122,7 @@ class PurchaseorderController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-                    'title' => 'Create Purchase Order'
+                    'title' => 'Créer un bon de commande'
                 ]);
             }
         } else {
@@ -143,8 +143,8 @@ class PurchaseorderController extends Controller {
             // Prevent editing of POs that are fully received or cancelled
             if (in_array($purchaseOrder['status'], ['received', 'cancelled'])) {
                  $this->renderView('errors/403', [ // 403 Forbidden
-                    'message' => "Purchase Order with status '{$purchaseOrder['status']}' cannot be edited.",
-                    'title' => 'Edit Forbidden'
+                    'message' => "Le bon de commande avec le statut '{$purchaseOrder['status']}' ne peut pas être modifié.",
+                    'title' => 'Modification interdite'
                 ]);
                 return;
             }
@@ -154,10 +154,10 @@ class PurchaseorderController extends Controller {
                 'suppliers' => $suppliers,
                 'products' => $products,
                 'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-                'title' => 'Edit Purchase Order'
+                'title' => 'Modifier le bon de commande'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Purchase Order with ID {$id} not found for editing."]);
+            $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$id} non trouvé pour modification."]);
         }
     }
 
@@ -169,7 +169,7 @@ class PurchaseorderController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $currentPo = $this->purchaseOrderModel->getById($id);
             if (!$currentPo || in_array($currentPo['status'], ['received', 'cancelled'])) {
-                 $this->renderView('errors/403', ['message' => "Cannot update PO that is received, cancelled or not found."]);
+                 $this->renderView('errors/403', ['message' => "Impossible de mettre à jour un BC qui est reçu, annulé ou non trouvé."]);
                  return;
             }
 
@@ -197,9 +197,9 @@ class PurchaseorderController extends Controller {
 
             $errors = [];
             // Add validation similar to store()
-            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Supplier is required.";
-            if (empty($data['order_date'])) $errors['order_date'] = "Order date is required.";
-            if (empty($itemsData) && $currentPo['status'] == 'pending') $errors['items'] = "At least one item is required for pending orders.";
+            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
+            if (empty($data['order_date'])) $errors['order_date'] = "La date de commande est requise.";
+            if (empty($itemsData) && $currentPo['status'] == 'pending') $errors['items'] = "Au moins un article est requis pour les commandes en attente.";
 
 
             if (!empty($errors)) {
@@ -216,7 +216,7 @@ class PurchaseorderController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-                    'title' => 'Edit Purchase Order'
+                    'title' => 'Modifier le bon de commande'
                 ]);
                 return;
             }
@@ -228,7 +228,7 @@ class PurchaseorderController extends Controller {
                 header("Location: /index.php?url=purchaseorder/show/{$id}&status=updated_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to update purchase order.';
+                $errors['general'] = 'Échec de la mise à jour du bon de commande.';
                 $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id); // Get fresh full PO data
                 $purchaseOrder = array_merge($purchaseOrder, $data);
                 $purchaseOrder['items'] = $itemsData;
@@ -241,7 +241,7 @@ class PurchaseorderController extends Controller {
                     'suppliers' => $suppliers,
                     'products' => $products,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
-                    'title' => 'Edit Purchase Order'
+                    'title' => 'Modifier le bon de commande'
                 ]);
             }
         } else {
@@ -257,21 +257,19 @@ class PurchaseorderController extends Controller {
     public function cancel($id) {
         $po = $this->purchaseOrderModel->getById($id);
         if (!$po) {
-            $this->renderView('errors/404', ['message' => "Purchase Order with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$id} non trouvé."]);
             return;
         }
-        // Only pending or partially received orders can be cancelled (example logic)
-        if (!in_array($po['status'], ['pending', 'partially_received'])) {
-            header("Location: /index.php?url=purchaseorder/show/{$id}&status=cancel_failed_status");
-            exit;
-        }
 
-        if ($this->purchaseOrderModel->updateStatus($id, 'cancelled')) {
-            header("Location: /index.php?url=purchaseorder/show/{$id}&status=cancelled_success");
-            exit;
+        if ($po['status'] === 'pending' || $po['status'] === 'partially_received') {
+            $success = $this->purchaseOrderModel->changeStatus($id, 'cancelled');
+            if ($success) {
+                header("Location: /index.php?url=purchaseorder/show/{$id}&status=cancelled_success");
+            } else {
+                $this->renderView('errors/500', ['message' => "Échec de l'annulation du bon de commande."]);
+            }
         } else {
-            header("Location: /index.php?url=purchaseorder/show/{$id}&status=cancelled_error");
-            exit;
+            $this->renderView('errors/403', ['message' => "Seuls les bons de commande en attente ou partiellement reçus peuvent être annulés."]);
         }
     }
 
@@ -280,20 +278,26 @@ class PurchaseorderController extends Controller {
      * @param int $id The ID of the purchase order to delete.
      */
     public function destroy($id) {
-        // Ensure only certain statuses can be deleted, or add other checks
         $po = $this->purchaseOrderModel->getById($id);
-        if ($po && $po['status'] !== 'cancelled' && $po['status'] !== 'pending') {
-             // For example, only allow deletion of 'cancelled' or 'pending' orders
-            header("Location: /index.php?url=purchaseorder/index&status=delete_failed_status");
-            exit;
+        if (!$po) {
+            $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$id} non trouvé pour suppression."]);
+            return;
         }
 
-        if ($this->purchaseOrderModel->deleteOrder($id)) {
+        // Only allow deleting orders that are in a 'safe' state, like 'cancelled' or maybe 'pending'.
+        // Deleting 'received' orders could orphans deliveries and stock movements, causing issues.
+        if ($po['status'] !== 'cancelled') {
+            $this->renderView('errors/403', ['message' => 'Seuls les bons de commande annulés peuvent être supprimés pour maintenir l\'intégrité des données. Annulez d\'abord la commande.']);
+            return;
+        }
+        
+        $deleted = $this->purchaseOrderModel->deleteOrder($id);
+
+        if ($deleted) {
             header("Location: /index.php?url=purchaseorder/index&status=deleted_success");
             exit;
         } else {
-            header("Location: /index.php?url=purchaseorder/index&status=delete_error");
-            exit;
+            $this->renderView('errors/500', ['message' => "Échec de la suppression du bon de commande."]);
         }
     }
 }

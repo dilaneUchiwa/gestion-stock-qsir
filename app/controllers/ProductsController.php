@@ -35,7 +35,7 @@ class ProductsController extends Controller {
             $this->renderView('products/show', ['product' => $product, 'children' => $children, 'parent' => $parent]);
         } else {
             // Handle product not found, e.g., show a 404 page or redirect
-            $this->renderView('errors/404', ['message' => "Product with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Produit avec l'ID {$id} non trouvé."]);
         }
     }
 
@@ -66,7 +66,7 @@ class ProductsController extends Controller {
             if (empty($data['name'])) {
                 // Handle validation errors, e.g., render form again with errors
                 $products = $this->productModel->getAll();
-                $this->renderView('products/create', ['errors' => ['name' => 'Name is required.'], 'data' => $data, 'products' => $products]);
+                $this->renderView('products/create', ['errors' => ['name' => 'Le nom est requis.'], 'data' => $data, 'products' => $products]);
                 return;
             }
 
@@ -95,7 +95,7 @@ class ProductsController extends Controller {
                         'product_id' => $productId,
                         'type' => 'initial_stock',
                         'quantity' => $data['quantity_in_stock'],
-                        'notes' => 'Initial stock set during product creation.'
+                        'notes' => 'Stock initial défini lors de la création du produit.'
                     ]);
                     // And ensure product table quantity_in_stock is correctly set by Product->create()
                 }
@@ -104,7 +104,7 @@ class ProductsController extends Controller {
             } else {
                 // Handle creation failure
                 $products = $this->productModel->getAll();
-                $this->renderView('products/create', ['errors' => ['general' => 'Failed to create product.'], 'data' => $data, 'products' => $products]);
+                $this->renderView('products/create', ['errors' => ['general' => 'Échec de la création du produit.'], 'data' => $data, 'products' => $products]);
             }
         } else {
             // Not a POST request, redirect to create form or show error
@@ -123,7 +123,7 @@ class ProductsController extends Controller {
             $products = $this->productModel->getAll(); // For parent selection
             $this->renderView('products/edit', ['product' => $product, 'products' => $products]);
         } else {
-            $this->renderView('errors/404', ['message' => "Product with ID {$id} not found for editing."]);
+            $this->renderView('errors/404', ['message' => "Produit avec l'ID {$id} non trouvé pour la modification."]);
         }
     }
 
@@ -146,7 +146,7 @@ class ProductsController extends Controller {
             if (empty($data['name'])) {
                 $product = $this->productModel->getById($id); // Get current product data
                 $products = $this->productModel->getAll();
-                $this->renderView('products/edit', ['errors' => ['name' => 'Name is required.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
+                $this->renderView('products/edit', ['errors' => ['name' => 'Le nom est requis.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
                 return;
             }
 
@@ -159,7 +159,7 @@ class ProductsController extends Controller {
                 // Handle update failure
                 $product = $this->productModel->getById($id);
                 $products = $this->productModel->getAll();
-                $this->renderView('products/edit', ['errors' => ['general' => 'Failed to update product.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
+                $this->renderView('products/edit', ['errors' => ['general' => 'Échec de la mise à jour du produit.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
             }
         } else {
             header("Location: /index.php?url=products/edit/{$id}"); // Adjust URL
@@ -182,7 +182,7 @@ class ProductsController extends Controller {
             // For now, redirecting with an error is complex without a flash message system
             // So, we can render an error view or redirect to index
             // Ideally, use session-based flash messages to show errors after redirect.
-            $this->renderView('errors/500', ['message' => "Failed to delete product with ID {$id}."]);
+            $this->renderView('errors/500', ['message' => "Échec de la suppression du produit avec l'ID {$id}."]);
         }
     }
 }

@@ -1,57 +1,57 @@
 <?php
 // $title set by controller
-// $title = 'Delivery Details';
+// $title = 'Détails de la livraison';
 ?>
 
 <?php if (empty($delivery)): ?>
-    <p>Delivery not found.</p>
-    <a href="index.php?url=delivery/index" class="button-info">Back to List</a>
+    <p>Livraison non trouvée.</p>
+    <a href="index.php?url=delivery/index" class="button-info">Retour à la liste</a>
     <?php return; ?>
 <?php endif; ?>
 
 <?php
 if (isset($_GET['status']) && $_GET['status'] == 'created_success') {
-    echo '<div class="alert alert-success">Delivery successfully recorded. Stock and PO status updated.</div>';
+    echo '<div class="alert alert-success">Livraison enregistrée avec succès. Le statut du stock et du BC a été mis à jour.</div>';
 }
 ?>
 
-<h2>Delivery #DEL-<?php echo htmlspecialchars($delivery['id']); ?></h2>
+<h2>Livraison #LIV-<?php echo htmlspecialchars($delivery['id']); ?></h2>
 <div style="margin-bottom: 20px;">
-    <a href="index.php?url=delivery/index" class="button-info">Back to List</a>
+    <a href="index.php?url=delivery/index" class="button-info">Retour à la liste</a>
     <?php if ($delivery['purchase_order_id']): ?>
-        <a href="index.php?url=purchaseorder/show/<?php echo $delivery['purchase_order_id']; ?>" class="button">View Linked PO</a>
+        <a href="index.php?url=purchaseorder/show/<?php echo $delivery['purchase_order_id']; ?>" class="button">Voir le BC lié</a>
     <?php endif; ?>
      <!-- Delete button - use with extreme caution or specific roles -->
-    <form action="index.php?url=delivery/destroy/<?php echo $delivery['id']; ?>" method="POST" style="display:inline; margin-left: 10px;" onsubmit="return confirm('DANGER! Deleting this delivery will attempt to REVERT stock quantities and may affect Purchase Order status. This action is generally not recommended. Are you absolutely sure?');">
-        <button type="submit" class="button-danger">Delete Delivery (Revert Stock)</button>
+    <form action="index.php?url=delivery/destroy/<?php echo $delivery['id']; ?>" method="POST" style="display:inline; margin-left: 10px;" onsubmit="return confirm('DANGER ! La suppression de cette livraison tentera d\'ANNULER les quantités en stock et peut affecter le statut du bon de commande. Cette action n\'est généralement pas recommandée. Êtes-vous absolument sûr ?');">
+        <button type="submit" class="button-danger">Supprimer la livraison (Annuler le stock)</button>
     </form>
 </div>
 
-<h3>Delivery Details</h3>
+<h3>Détails de la livraison</h3>
 <table class="table" style="width:50%; margin-bottom:20px;">
-    <tr><th>Delivery Date:</th><td><?php echo htmlspecialchars($delivery['delivery_date']); ?></td></tr>
-    <tr><th>Linked Purchase Order:</th><td><?php echo htmlspecialchars($delivery['purchase_order_number']); ?></td></tr>
-    <tr><th>Supplier:</th><td><?php echo htmlspecialchars($delivery['supplier_name']); ?></td></tr>
-    <tr><th>Type:</th><td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $delivery['type']))); ?></td></tr>
-    <tr><th>Is Partial:</th><td><?php echo $delivery['is_partial'] ? 'Yes' : 'No'; ?></td></tr>
-    <tr><th>Notes:</th><td><?php echo nl2br(htmlspecialchars($delivery['notes'] ?? 'N/A')); ?></td></tr>
-    <tr><th>Recorded At:</th><td><?php echo htmlspecialchars($delivery['created_at']); ?></td></tr>
-    <tr><th>Last Updated:</th><td><?php echo htmlspecialchars($delivery['updated_at']); ?></td></tr>
+    <tr><th>Date de livraison :</th><td><?php echo htmlspecialchars($delivery['delivery_date']); ?></td></tr>
+    <tr><th>Bon de commande lié :</th><td><?php echo htmlspecialchars($delivery['purchase_order_number']); ?></td></tr>
+    <tr><th>Fournisseur :</th><td><?php echo htmlspecialchars($delivery['supplier_name']); ?></td></tr>
+    <tr><th>Type :</th><td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $delivery['type']))); ?></td></tr>
+    <tr><th>Est partielle :</th><td><?php echo $delivery['is_partial'] ? 'Oui' : 'Non'; ?></td></tr>
+    <tr><th>Remarques :</th><td><?php echo nl2br(htmlspecialchars($delivery['notes'] ?? 'N/A')); ?></td></tr>
+    <tr><th>Enregistré le :</th><td><?php echo htmlspecialchars($delivery['created_at']); ?></td></tr>
+    <tr><th>Dernière mise à jour :</th><td><?php echo htmlspecialchars($delivery['updated_at']); ?></td></tr>
 </table>
 
-<h3>Received Items</h3>
+<h3>Articles reçus</h3>
 <?php if (empty($delivery['items'])): ?>
-    <p>No items found for this delivery.</p>
+    <p>Aucun article trouvé pour cette livraison.</p>
 <?php else: ?>
     <table class="table">
         <thead>
             <tr>
-                <th>Product ID</th>
-                <th>Product Name</th>
-                <th>Quantity Received</th>
-                <th>Unit of Measure</th>
-                <th>From PO Item ID</th>
-                <th>Originally Ordered (on PO)</th>
+                <th>ID Produit</th>
+                <th>Nom du produit</th>
+                <th>Quantité reçue</th>
+                <th>Unité de mesure</th>
+                <th>Depuis l'article de BC ID</th>
+                <th>Commandé à l'origine (sur BC)</th>
             </tr>
         </thead>
         <tbody>

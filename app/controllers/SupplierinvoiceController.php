@@ -21,7 +21,7 @@ class SupplierinvoiceController extends Controller {
         $invoices = $this->supplierInvoiceModel->getAllWithDetails();
         $this->renderView('procurement/supplier_invoices/index', [
             'invoices' => $invoices,
-            'title' => 'Supplier Invoices'
+            'title' => 'Factures fournisseurs'
         ]);
     }
 
@@ -30,10 +30,10 @@ class SupplierinvoiceController extends Controller {
         if ($invoice) {
             $this->renderView('procurement/supplier_invoices/show', [
                 'invoice' => $invoice,
-                'title' => 'Supplier Invoice Details'
+                'title' => 'Détails de la facture fournisseur'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Supplier Invoice with ID {$id} not found."]);
+            $this->renderView('errors/404', ['message' => "Facture fournisseur avec l'ID {$id} non trouvée."]);
         }
     }
 
@@ -53,10 +53,10 @@ class SupplierinvoiceController extends Controller {
                 // Auto-fill amount from delivery items might be complex if not all items are invoiced.
                 // For now, user enters total amount.
                 if ($delivery['type'] === 'free_sample') {
-                     $defaults['warning_message'] = "Warning: The linked delivery (DEL-{$deliveryId}) is marked as 'Free Sample'. Typically, free samples do not generate invoices to be paid.";
+                     $defaults['warning_message'] = "Avertissement : La livraison liée (LIV-{$deliveryId}) est marquée comme 'Échantillon gratuit'. Typiquement, les échantillons gratuits ne génèrent pas de factures à payer.";
                 }
             } else {
-                 $this->renderView('errors/404', ['message' => "Delivery with ID {$deliveryId} not found for creating invoice."]); return;
+                 $this->renderView('errors/404', ['message' => "Livraison avec l'ID {$deliveryId} non trouvée pour la création de la facture."]); return;
             }
         } elseif ($purchaseOrderId) {
             $purchaseOrder = $this->purchaseOrderModel->getById($purchaseOrderId);
@@ -65,7 +65,7 @@ class SupplierinvoiceController extends Controller {
                 $defaults['total_amount'] = $purchaseOrder['total_amount']; // Default to PO total
                 $defaults['purchase_order_id'] = $purchaseOrder['id'];
             } else {
-                 $this->renderView('errors/404', ['message' => "Purchase Order with ID {$purchaseOrderId} not found for creating invoice."]); return;
+                 $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$purchaseOrderId} non trouvé pour la création de la facture."]); return;
             }
         }
 
@@ -74,7 +74,7 @@ class SupplierinvoiceController extends Controller {
             'suppliers' => $suppliers,
             'data' => $defaults, // Pre-fill data
             'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-            'title' => 'Create Supplier Invoice'
+            'title' => 'Créer une facture fournisseur'
         ]);
     }
 
@@ -93,11 +93,11 @@ class SupplierinvoiceController extends Controller {
             ];
 
             $errors = [];
-            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Supplier is required.";
-            if (empty($data['invoice_number'])) $errors['invoice_number'] = "Invoice number is required.";
-            if (empty($data['invoice_date'])) $errors['invoice_date'] = "Invoice date is required.";
-            if (!is_numeric($data['total_amount']) || $data['total_amount'] < 0) $errors['total_amount'] = "Total amount must be a non-negative number.";
-            if (!in_array($data['status'], $this->supplierInvoiceModel->allowedStatuses)) $errors['status'] = "Invalid status.";
+            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
+            if (empty($data['invoice_number'])) $errors['invoice_number'] = "Le numéro de facture est requis.";
+            if (empty($data['invoice_date'])) $errors['invoice_date'] = "La date de facturation est requise.";
+            if (!is_numeric($data['total_amount']) || $data['total_amount'] < 0) $errors['total_amount'] = "Le montant total doit être un nombre non négatif.";
+            if (!in_array($data['status'], $this->supplierInvoiceModel->allowedStatuses)) $errors['status'] = "Statut non valide.";
 
 
             if (!empty($errors)) {
@@ -107,7 +107,7 @@ class SupplierinvoiceController extends Controller {
                     'data' => $data,
                     'suppliers' => $suppliers,
                     'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-                    'title' => 'Create Supplier Invoice'
+                    'title' => 'Créer une facture fournisseur'
                 ]);
                 return;
             }
@@ -118,14 +118,14 @@ class SupplierinvoiceController extends Controller {
                 header("Location: /index.php?url=supplierinvoice/show/{$invoiceId}&status=created_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to create supplier invoice. Duplicate invoice number for this supplier?';
+                $errors['general'] = 'Échec de la création de la facture fournisseur. Numéro de facture en double pour ce fournisseur ?';
                 $suppliers = $this->supplierModel->getAll();
                 $this->renderView('procurement/supplier_invoices/create', [
                     'errors' => $errors,
                     'data' => $data,
                     'suppliers' => $suppliers,
                     'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-                    'title' => 'Create Supplier Invoice'
+                    'title' => 'Créer une facture fournisseur'
                 ]);
             }
         } else {
@@ -139,17 +139,17 @@ class SupplierinvoiceController extends Controller {
         if ($invoice) {
             // Prevent editing if fully paid? Business rule.
             // if ($invoice['status'] === 'paid') {
-            //    $this->renderView('errors/403', ['message' => 'Paid invoices cannot be edited.']); return;
+            //    $this->renderView('errors/403', ['message' => 'Les factures payées ne peuvent pas être modifiées.']); return;
             // }
             $suppliers = $this->supplierModel->getAll();
             $this->renderView('procurement/supplier_invoices/edit', [
                 'invoice' => $invoice,
                 'suppliers' => $suppliers,
                 'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-                'title' => 'Edit Supplier Invoice'
+                'title' => 'Modifier la facture fournisseur'
             ]);
         } else {
-            $this->renderView('errors/404', ['message' => "Supplier Invoice with ID {$id} not found for editing."]);
+            $this->renderView('errors/404', ['message' => "Facture fournisseur avec l'ID {$id} non trouvée pour modification."]);
         }
     }
 
@@ -158,7 +158,7 @@ class SupplierinvoiceController extends Controller {
             // Fetch current invoice to prevent status override if not provided in form, or for validation.
             $currentInvoice = $this->supplierInvoiceModel->getByIdWithDetails($id);
             if (!$currentInvoice) {
-                $this->renderView('errors/404', ['message' => "Invoice not found for update."]); return;
+                $this->renderView('errors/404', ['message' => "Facture non trouvée pour la mise à jour."]); return;
             }
 
             $data = [
@@ -184,8 +184,8 @@ class SupplierinvoiceController extends Controller {
 
             $errors = [];
             // Add validation similar to store()
-             if (empty($data['supplier_id'])) $errors['supplier_id'] = "Supplier is required.";
-            if (empty($data['invoice_number'])) $errors['invoice_number'] = "Invoice number is required.";
+             if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
+            if (empty($data['invoice_number'])) $errors['invoice_number'] = "Le numéro de facture est requis.";
             // ... more validation
 
             if (!empty($errors)) {
@@ -197,7 +197,7 @@ class SupplierinvoiceController extends Controller {
                     'invoice' => $invoiceForForm,
                     'suppliers' => $suppliers,
                     'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-                    'title' => 'Edit Supplier Invoice'
+                    'title' => 'Modifier la facture fournisseur'
                 ]);
                 return;
             }
@@ -206,7 +206,7 @@ class SupplierinvoiceController extends Controller {
                 header("Location: /index.php?url=supplierinvoice/show/{$id}&status=updated_success");
                 exit;
             } else {
-                $errors['general'] = 'Failed to update supplier invoice. Duplicate invoice number?';
+                $errors['general'] = 'Échec de la mise à jour de la facture fournisseur. Numéro de facture en double ?';
                 $suppliers = $this->supplierModel->getAll();
                 $invoiceForForm = array_merge($currentInvoice, $data);
                 $this->renderView('procurement/supplier_invoices/edit', [
@@ -214,7 +214,7 @@ class SupplierinvoiceController extends Controller {
                     'invoice' => $invoiceForForm,
                     'suppliers' => $suppliers,
                     'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
-                    'title' => 'Edit Supplier Invoice'
+                    'title' => 'Modifier la facture fournisseur'
                 ]);
             }
         } else {
