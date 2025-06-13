@@ -1,0 +1,18 @@
+services:
+
+  gestion-stock-app:
+    build:
+      context: ./
+    container_name: gestion-stock-app-service
+    ports:
+      - "80:80"
+    volumes:
+      - "./src:/var/www/html"
+      - "./logs:/var/log/nginx"
+      - "./src/:/var/www/html/"
+    networks:
+      - gestion-stock_network
+
+networks:
+  gestion-stock_network: 
+    driver : bridge
