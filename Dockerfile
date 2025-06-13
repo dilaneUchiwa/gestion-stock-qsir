@@ -4,7 +4,6 @@ FROM ubuntu:20.04
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:ondrej/php && \
-    add-apt-repository ppa:libreoffice/ppa &&\
     apt-get update && \
     apt-get install -y --no-install-recommends \
         nginx \
