@@ -1,6 +1,6 @@
 <?php
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Model.php';
+require_once ROOT_PATH . '/core/Model.php';
 
 class SupplierInvoice extends Model {
 

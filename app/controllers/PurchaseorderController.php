@@ -1,6 +1,6 @@
 <?php
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Controller.php';
+require_once ROOT_PATH . '/core/Controller.php';
 // Models will be loaded via $this->loadModel()
 
 class PurchaseorderController extends Controller {

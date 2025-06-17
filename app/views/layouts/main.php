@@ -64,7 +64,7 @@
     </main>
 
     <footer>
-        <p>&copy; <?php echo date('Y'); ?> ERPNextClone. Tous droits réservés.</p>
+        <p>&copy; <?php echo date('Y'); ?> MALIKA. Tous droits réservés.</p>
     </footer>
 </body>
 </html>

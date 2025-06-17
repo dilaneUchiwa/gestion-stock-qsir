@@ -1,8 +1,8 @@
 <?php
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Model.php';
+require_once ROOT_PATH . '/core/Model.php';
 // Placeholder for PurchaseOrderItem, might be expanded or kept simple
-// require_once $_SERVER['DOCUMENT_ROOT'] . '/PurchaseOrderItem.php';
+// require_once ROOT_PATH . '/PurchaseOrderItem.php';
 
 class PurchaseOrder extends Model {
 

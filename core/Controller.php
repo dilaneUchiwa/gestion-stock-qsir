@@ -17,7 +17,7 @@ class Controller {
      * @throws Exception if the model file does not exist.
      */
     public function loadModel($modelName) {
-        $modelFile = $_SERVER['DOCUMENT_ROOT'] . '/app/models/' . ucfirst($modelName) . '.php';
+        $modelFile = ROOT_PATH . '/app/models/' . ucfirst($modelName) . '.php';
         if (file_exists($modelFile)) {
             require_once $modelFile;
             // Ensure the model class name matches the file name convention
@@ -42,7 +42,7 @@ class Controller {
      * @throws Exception if the view file does not exist.
      */
     public function renderView($viewName, $data = []) {
-        $viewFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/' . $viewName . '.php';
+        $viewFile = ROOT_PATH . '/app/views/' . $viewName . '.php';
 
         if (file_exists($viewFile)) {
             // Extract data array to variables for easy access in the view
@@ -58,7 +58,7 @@ class Controller {
             $viewContent = ob_get_clean();
 
             // Load the main layout
-            $layoutFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/layouts/main.php';
+            $layoutFile = ROOT_PATH . '/app/views/layouts/main.php';
             if (file_exists($layoutFile)) {
                 // Pass view content and data to the layout
                 // Data originally passed to the view is also available in the layout
@@ -74,14 +74,14 @@ class Controller {
             }
         } else {
             // Try to render a generic 404 page if the view itself is not found
-            $errorViewFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/errors/404.php';
+            $errorViewFile = ROOT_PATH . '/app/views/errors/404.php';
             if (file_exists($errorViewFile) && $viewName !== 'errors/404') { // Avoid infinite loop
                 extract(['message' => "Fichier de vue {$viewFile} non trouvé."]);
                 ob_start();
                 require $errorViewFile;
                 $viewContent = ob_get_clean();
 
-                $layoutFile = $_SERVER['DOCUMENT_ROOT'] . '/app/views/layouts/main.php';
+                $layoutFile = ROOT_PATH . '/app/views/layouts/main.php';
                 if (file_exists($layoutFile)) {
                     $content = $viewContent;
                     $title = "Erreur - Non trouvé";

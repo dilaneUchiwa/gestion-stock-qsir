@@ -44,7 +44,7 @@
         </div>
         <div class="form-group">
             <label for="type">Type de livraison *</label>
-            <select name="type" id="type" required>
+            <select disabled name="type" id="type" required>
                 <?php
                 $currentType = $data['type'] ?? ($purchaseOrder ? 'purchase' : 'purchase'); // Default for PO is purchase
                 foreach ($allowedDeliveryTypes as $typeVal): ?>

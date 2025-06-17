@@ -1,6 +1,6 @@
 <?php
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Controller.php';
+require_once ROOT_PATH . '/core/Controller.php';
 
 class SupplierinvoiceController extends Controller {
 

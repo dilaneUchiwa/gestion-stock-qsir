@@ -1,7 +1,7 @@
 <?php
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Controller.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Database.php'; // Required for loadModel
+require_once ROOT_PATH . '/core/Controller.php';
+require_once ROOT_PATH . '/core/Database.php'; // Required for loadModel
 
 class ClientsController extends Controller {
 

@@ -5,11 +5,13 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+define('ROOT_PATH',__DIR__);
+
 // Autoload Core Classes (simple autoloader)
 spl_autoload_register(function ($className) {
-    $corePath = $_SERVER['DOCUMENT_ROOT'] . '/core/' . $className . '.php';
-    $controllerPath = $_SERVER['DOCUMENT_ROOT'] . '/app/controllers/' . $className . '.php';
-    $modelPath = $_SERVER['DOCUMENT_ROOT'] . '/app/models/' . $className . '.php';
+    $corePath = ROOT_PATH . '/core/' . $className . '.php';
+    $controllerPath = ROOT_PATH . '/app/controllers/' . $className . '.php';
+    $modelPath = ROOT_PATH . '/app/models/' . $className . '.php';
 
     if (file_exists($corePath)) {
         require_once $corePath;
@@ -30,7 +32,7 @@ $methodName = $urlParts[1] ?? 'index'; // Default to index method
 $params = array_slice($urlParts, 2);
 
 // Prepend path to controller
-$controllerFile = $_SERVER['DOCUMENT_ROOT'] . '/app/controllers/' . $controllerName . '.php';
+$controllerFile = ROOT_PATH . '/app/controllers/' . $controllerName . '.php';
 
 if (file_exists($controllerFile)) {
     require_once $controllerFile;
@@ -58,7 +60,7 @@ if (file_exists($controllerFile)) {
     // Attempt to load a generic controller to render the 404 page via the layout
     // This assumes Controller.php is already loaded by spl_autoload_register or explicitly required
     if (!class_exists('Controller')) { // Ensure Controller class is available
-        require_once $_SERVER['DOCUMENT_ROOT'] . '/core/Controller.php';
+        require_once ROOT_PATH . '/core/Controller.php';
     }
     $errorController = new Controller();
     $errorController->renderView('errors/404', ['message' => "Controller file {$controllerName}.php not found."]);
