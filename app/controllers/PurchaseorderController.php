@@ -8,12 +8,14 @@ class PurchaseorderController extends Controller {
     private $purchaseOrderModel;
     private $supplierModel;
     private $productModel;
+    private $unitModel; // Added UnitModel
 
     public function __construct() {
         parent::__construct();
         $this->purchaseOrderModel = $this->loadModel('PurchaseOrder');
         $this->supplierModel = $this->loadModel('Supplier'); // For supplier selection
         $this->productModel = $this->loadModel('Product');   // For product selection in items
+        $this->unitModel = $this->loadModel('Unit');       // Load UnitModel
     }
 
     /**
@@ -45,10 +47,19 @@ class PurchaseorderController extends Controller {
      */
     public function create() {
         $suppliers = $this->supplierModel->getAll();
-        $products = $this->productModel->getAll(); // For item selection
+        $products = $this->productModel->getAll();
+        $units = $this->unitModel->getAll();
+
+        $productUnitsMap = [];
+        foreach ($products as $product) {
+            $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+        }
+
         $this->renderView('procurement/purchase_orders/create', [
             'suppliers' => $suppliers,
-            'products' => $products,
+            'products' => $products, // Contains base_unit_id, base_unit_name etc.
+            'units' => $units, // All units for fallback or general purpose
+            'productUnitsMap' => $productUnitsMap, // Specific units for each product
             'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
             'title' => 'Créer un bon de commande'
         ]);
@@ -70,9 +81,10 @@ class PurchaseorderController extends Controller {
             $itemsData = [];
             if (isset($_POST['items']) && is_array($_POST['items'])) {
                 foreach ($_POST['items'] as $item) {
-                    if (!empty($item['product_id']) && isset($item['quantity_ordered']) && isset($item['unit_price'])) {
+                    if (!empty($item['product_id']) && isset($item['quantity_ordered']) && isset($item['unit_price']) && !empty($item['unit_id'])) {
                         $itemsData[] = [
                             'product_id' => $item['product_id'],
+                            'unit_id' => (int)$item['unit_id'], // Add unit_id
                             'quantity_ordered' => (int)$item['quantity_ordered'],
                             'unit_price' => (float)$item['unit_price'],
                         ];
@@ -85,7 +97,15 @@ class PurchaseorderController extends Controller {
             if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
             if (empty($data['order_date'])) $errors['order_date'] = "La date de commande est requise.";
             if (empty($itemsData)) $errors['items'] = "Au moins un article est requis.";
+
             foreach($itemsData as $idx => $item) {
+                if (empty($item['unit_id'])) {
+                    $errors["item_{$idx}_unit_id"] = "L'unité pour l'article est requise.";
+                } else if (!$this->productModel->isUnitValidForProduct((int)$item['product_id'], (int)$item['unit_id'])) {
+                    $productInfo = $this->productModel->getById((int)$item['product_id']);
+                    $unitInfo = $this->unitModel->getById((int)$item['unit_id']);
+                    $errors["item_{$idx}_unit_id"] = "L'unité '".($unitInfo ? $unitInfo['name'] : $item['unit_id'])."' n'est pas valide pour le produit '".($productInfo ? $productInfo['name'] : $item['product_id'])."'.";
+                }
                 if($item['quantity_ordered'] <= 0) $errors["item_{$idx}_qty"] = "La quantité de l'article doit être positive.";
                 if($item['unit_price'] < 0) $errors["item_{$idx}_price"] = "Le prix unitaire de l'article ne peut pas être négatif.";
             }
@@ -94,12 +114,20 @@ class PurchaseorderController extends Controller {
             if (!empty($errors)) {
                 $suppliers = $this->supplierModel->getAll();
                 $products = $this->productModel->getAll();
+                $units = $this->unitModel->getAll();
+                // Regenerate productUnitsMap for the view when there are errors
+                $productUnitsMap = [];
+                foreach ($products as $product) {
+                    $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+                }
                 $this->renderView('procurement/purchase_orders/create', [
                     'errors' => $errors,
                     'data' => $data,
-                    'itemsData_form' => $itemsData, // Pass back item data for repopulation
+                    'itemsData_form' => $itemsData,
                     'suppliers' => $suppliers,
                     'products' => $products,
+                    'units' => $units,
+                    'productUnitsMap' => $productUnitsMap,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
                     'title' => 'Créer un bon de commande'
                 ]);
@@ -115,12 +143,14 @@ class PurchaseorderController extends Controller {
                 $errors['general'] = 'Échec de la création du bon de commande.';
                 $suppliers = $this->supplierModel->getAll();
                 $products = $this->productModel->getAll();
+                $units = $this->unitModel->getAll();
                 $this->renderView('procurement/purchase_orders/create', [
                     'errors' => $errors,
                     'data' => $data,
                     'itemsData_form' => $itemsData,
                     'suppliers' => $suppliers,
                     'products' => $products,
+                    'units' => $units,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
                     'title' => 'Créer un bon de commande'
                 ]);
@@ -139,7 +169,25 @@ class PurchaseorderController extends Controller {
         $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id);
         if ($purchaseOrder) {
             $suppliers = $this->supplierModel->getAll();
-            $products = $this->productModel->getAll();
+            $products = $this->productModel->getAll(); // Base product list
+            $units = $this->unitModel->getAll(); // All units list
+
+            $productUnitsMap = [];
+            // Fetch units for products already in the PO items
+            if (!empty($purchaseOrder['items'])) {
+                foreach ($purchaseOrder['items'] as $item) {
+                    if (!isset($productUnitsMap[$item['product_id']])) {
+                        $productUnitsMap[$item['product_id']] = $this->productModel->getUnitsForProduct($item['product_id']);
+                    }
+                }
+            }
+            // And also for all other products that might be added
+            foreach ($products as $product) {
+                if (!isset($productUnitsMap[$product['id']])) {
+                     $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+                }
+            }
+
             // Prevent editing of POs that are fully received or cancelled
             if (in_array($purchaseOrder['status'], ['received', 'cancelled'])) {
                  $this->renderView('errors/403', [ // 403 Forbidden
@@ -150,9 +198,11 @@ class PurchaseorderController extends Controller {
             }
 
             $this->renderView('procurement/purchase_orders/edit', [
-                'purchaseOrder' => $purchaseOrder,
+                'purchaseOrder' => $purchaseOrder, // Contains items with unit_id, unit_name, unit_symbol
                 'suppliers' => $suppliers,
-                'products' => $products,
+                'products' => $products, // General list of all products
+                'units' => $units, // General list of all units
+                'productUnitsMap' => $productUnitsMap, // Specific units for each product
                 'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
                 'title' => 'Modifier le bon de commande'
             ]);
@@ -184,10 +234,11 @@ class PurchaseorderController extends Controller {
             $itemsData = [];
             if (isset($_POST['items']) && is_array($_POST['items'])) {
                 foreach ($_POST['items'] as $item) {
-                    if (!empty($item['product_id']) && isset($item['quantity_ordered']) && isset($item['unit_price'])) {
+                    if (!empty($item['product_id']) && isset($item['quantity_ordered']) && isset($item['unit_price']) && !empty($item['unit_id'])) {
                         $itemsData[] = [
-                            // 'id' => $item['id'] ?? null, // For updating existing items vs new ones
+                            // 'id' => $item['id'] ?? null,
                             'product_id' => $item['product_id'],
+                            'unit_id' => (int)$item['unit_id'], // Add unit_id
                             'quantity_ordered' => (int)$item['quantity_ordered'],
                             'unit_price' => (float)$item['unit_price'],
                         ];
@@ -201,20 +252,52 @@ class PurchaseorderController extends Controller {
             if (empty($data['order_date'])) $errors['order_date'] = "La date de commande est requise.";
             if (empty($itemsData) && $currentPo['status'] == 'pending') $errors['items'] = "Au moins un article est requis pour les commandes en attente.";
 
+            foreach($itemsData as $idx => $item) {
+                if (empty($item['unit_id'])) {
+                    $errors["item_{$idx}_unit_id"] = "L'unité pour l'article est requise.";
+                } else if (!$this->productModel->isUnitValidForProduct((int)$item['product_id'], (int)$item['unit_id'])) {
+                    $productInfo = $this->productModel->getById((int)$item['product_id']);
+                    $unitInfo = $this->unitModel->getById((int)$item['unit_id']);
+                    $errors["item_{$idx}_unit_id"] = "L'unité '".($unitInfo ? $unitInfo['name'] : $item['unit_id'])."' n'est pas valide pour le produit '".($productInfo ? $productInfo['name'] : $item['product_id'])."'.";
+                }
+                if($item['quantity_ordered'] <= 0) $errors["item_{$idx}_qty"] = "La quantité de l'article doit être positive.";
+                if($item['unit_price'] < 0) $errors["item_{$idx}_price"] = "Le prix unitaire de l'article ne peut pas être négatif.";
+            }
+
 
             if (!empty($errors)) {
-                // Repopulate form with errors and submitted data
-                $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id); // Get fresh full PO data
-                $purchaseOrder = array_merge($purchaseOrder, $data); // Override with submitted data
-                $purchaseOrder['items'] = $itemsData; // Use submitted items data for form repopulation
+                $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id);
+                $purchaseOrder = array_merge($purchaseOrder, $data);
+                $itemsDataForForm = $itemsData;
 
                 $suppliers = $this->supplierModel->getAll();
-                $products = $this->productModel->getAll();
+                $productsForDropdown = $this->productModel->getAll(); // Renamed to avoid confusion
+                $unitsAll = $this->unitModel->getAll(); // Renamed for clarity
+
+                $productUnitsMap = [];
+                // Fetch units for products already in the PO items (using original product_id from itemsDataForForm)
+                if (!empty($itemsDataForForm)) {
+                    foreach ($itemsDataForForm as $itData) {
+                        if (!isset($productUnitsMap[$itData['product_id']])) {
+                            $productUnitsMap[$itData['product_id']] = $this->productModel->getUnitsForProduct($itData['product_id']);
+                        }
+                    }
+                }
+                // And also for all other products that might be added
+                foreach ($productsForDropdown as $p) {
+                    if (!isset($productUnitsMap[$p['id']])) {
+                         $productUnitsMap[$p['id']] = $this->productModel->getUnitsForProduct($p['id']);
+                    }
+                }
+
                 $this->renderView('procurement/purchase_orders/edit', [
                     'errors' => $errors,
                     'purchaseOrder' => $purchaseOrder,
+                    'itemsData_form' => $itemsDataForForm,
                     'suppliers' => $suppliers,
-                    'products' => $products,
+                    'products' => $productsForDropdown, // Pass the general list of products
+                    'units' => $unitsAll, // Pass the general list of all units
+                    'productUnitsMap' => $productUnitsMap,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
                     'title' => 'Modifier le bon de commande'
                 ]);
@@ -229,17 +312,22 @@ class PurchaseorderController extends Controller {
                 exit;
             } else {
                 $errors['general'] = 'Échec de la mise à jour du bon de commande.';
-                $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id); // Get fresh full PO data
+                $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id);
                 $purchaseOrder = array_merge($purchaseOrder, $data);
-                $purchaseOrder['items'] = $itemsData;
+                // $purchaseOrder['items'] = $itemsData; // This was for direct display, but itemsData_form is better for forms
+                $itemsDataForForm = $itemsData;
+
 
                 $suppliers = $this->supplierModel->getAll();
                 $products = $this->productModel->getAll();
+                $units = $this->unitModel->getAll();
                 $this->renderView('procurement/purchase_orders/edit', [
                     'errors' => $errors,
                     'purchaseOrder' => $purchaseOrder,
+                    'itemsData_form' => $itemsDataForForm,
                     'suppliers' => $suppliers,
                     'products' => $products,
+                    'units' => $units,
                     'allowedStatuses' => $this->purchaseOrderModel->allowedStatuses,
                     'title' => 'Modifier le bon de commande'
                 ]);
@@ -299,6 +387,26 @@ class PurchaseorderController extends Controller {
         } else {
             $this->renderView('errors/500', ['message' => "Échec de la suppression du bon de commande."]);
         }
+    }
+
+    /**
+     * Generates a printable Purchase Order.
+     * @param int $id The ID of the Purchase Order.
+     */
+    public function print_po($id) {
+        $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($id);
+        if (!$purchaseOrder) {
+            $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$id} non trouvé."]);
+            return;
+        }
+
+        // Data for the view
+        $data = [
+            'purchaseOrder' => $purchaseOrder,
+            'title' => "Bon de Commande #BC-" . $purchaseOrder['id']
+            // Company details can be hardcoded in the print view or fetched from a config/DB
+        ];
+        $this->renderPrintView('procurement/purchase_orders/print_po', $data);
     }
 }
 ?>

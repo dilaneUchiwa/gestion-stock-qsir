@@ -6,10 +6,12 @@ require_once ROOT_PATH . '/core/Database.php'; // Required for loadModel
 class SuppliersController extends Controller {
 
     private $supplierModel;
+    private $supplierCategoryModel;
 
     public function __construct() {
         parent::__construct();
         $this->supplierModel = $this->loadModel('Supplier');
+        $this->supplierCategoryModel = $this->loadModel('SupplierCategory');
     }
 
     /**
@@ -38,7 +40,12 @@ class SuppliersController extends Controller {
      * Shows the form for creating a new supplier.
      */
     public function create() {
-        $this->renderView('suppliers/create', []);
+        $supplier_categories = $this->supplierCategoryModel->getAll();
+        $this->renderView('suppliers/create', [
+            'supplier_categories' => $supplier_categories,
+            'data' => [],
+            'errors' => []
+        ]);
     }
 
     /**
@@ -48,6 +55,7 @@ class SuppliersController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = [
                 'name' => $_POST['name'] ?? '',
+                'supplier_category_id' => !empty($_POST['supplier_category_id']) ? (int)$_POST['supplier_category_id'] : null,
                 'contact_person' => $_POST['contact_person'] ?? '',
                 'email' => $_POST['email'] ?? '',
                 'phone' => $_POST['phone'] ?? '',
@@ -65,9 +73,17 @@ class SuppliersController extends Controller {
                 $errors['email'] = 'Format d\'email invalide.';
             }
             // Add more validation as needed (e.g. phone format)
+            if ($data['supplier_category_id'] !== null && !$this->supplierCategoryModel->getById($data['supplier_category_id'])) {
+                $errors['supplier_category_id'] = 'Catégorie de fournisseur sélectionnée invalide.';
+            }
 
             if (!empty($errors)) {
-                $this->renderView('suppliers/create', ['errors' => $errors, 'data' => $data]);
+                $supplier_categories = $this->supplierCategoryModel->getAll();
+                $this->renderView('suppliers/create', [
+                    'errors' => $errors,
+                    'data' => $data,
+                    'supplier_categories' => $supplier_categories
+                ]);
                 return;
             }
 
@@ -81,7 +97,12 @@ class SuppliersController extends Controller {
             } else {
                 // Handle creation failure (e.g. email already exists)
                 $errors['general'] = "Échec de la création du fournisseur. L'e-mail existe peut-être déjà.";
-                $this->renderView('suppliers/create', ['errors' => $errors, 'data' => $data]);
+                $supplier_categories = $this->supplierCategoryModel->getAll();
+                $this->renderView('suppliers/create', [
+                    'errors' => $errors,
+                    'data' => $data,
+                    'supplier_categories' => $supplier_categories
+                ]);
             }
         } else {
             // Not a POST request, redirect or show error
@@ -95,9 +116,13 @@ class SuppliersController extends Controller {
      * @param int $id The ID of the supplier to edit.
      */
     public function edit($id) {
-        $supplier = $this->supplierModel->getById($id);
+        $supplier = $this->supplierModel->getById($id); // Now fetches supplier_category_name
         if ($supplier) {
-            $this->renderView('suppliers/edit', ['supplier' => $supplier]);
+            $supplier_categories = $this->supplierCategoryModel->getAll();
+            $this->renderView('suppliers/edit', [
+                'supplier' => $supplier,
+                'supplier_categories' => $supplier_categories
+            ]);
         } else {
              $this->renderView('errors/404', ['message' => "Fournisseur avec l'ID {$id} non trouvé pour la modification."]);
         }
@@ -111,6 +136,7 @@ class SuppliersController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = [
                 'name' => $_POST['name'] ?? '',
+                'supplier_category_id' => !empty($_POST['supplier_category_id']) ? (int)$_POST['supplier_category_id'] : null,
                 'contact_person' => $_POST['contact_person'] ?? '',
                 'email' => $_POST['email'] ?? '',
                 'phone' => $_POST['phone'] ?? '',
@@ -127,10 +153,19 @@ class SuppliersController extends Controller {
                 $errors['email'] = 'Format d\'email invalide.';
             }
 
+            if ($data['supplier_category_id'] !== null && !$this->supplierCategoryModel->getById($data['supplier_category_id'])) {
+                $errors['supplier_category_id'] = 'Catégorie de fournisseur sélectionnée invalide.';
+            }
+
             if (!empty($errors)) {
                 // Preserve existing supplier data for the form if some fields are invalid
                 $currentSupplierData = $this->supplierModel->getById($id);
-                $this->renderView('suppliers/edit', ['errors' => $errors, 'supplier' => array_merge((array)$currentSupplierData, $data)]);
+                $supplier_categories = $this->supplierCategoryModel->getAll();
+                $this->renderView('suppliers/edit', [
+                    'errors' => $errors,
+                    'supplier' => array_merge((array)$currentSupplierData, $data),
+                    'supplier_categories' => $supplier_categories
+                ]);
                 return;
             }
 
@@ -142,7 +177,12 @@ class SuppliersController extends Controller {
             } else {
                 $errors['general'] = "Échec de la mise à jour du fournisseur. L'e-mail existe peut-être déjà ou aucune donnée n'a été modifiée.";
                 $currentSupplierData = $this->supplierModel->getById($id);
-                $this->renderView('suppliers/edit', ['errors' => $errors, 'supplier' => array_merge((array)$currentSupplierData, $data)]);
+                $supplier_categories = $this->supplierCategoryModel->getAll();
+                $this->renderView('suppliers/edit', [
+                    'errors' => $errors,
+                    'supplier' => array_merge((array)$currentSupplierData, $data),
+                    'supplier_categories' => $supplier_categories
+                ]);
             }
         } else {
             header("Location: /index.php?url=suppliers/edit/{$id}"); // Adjust URL

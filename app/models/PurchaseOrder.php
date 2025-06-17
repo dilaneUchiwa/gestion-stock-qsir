@@ -37,10 +37,12 @@ class PurchaseOrder extends Model {
         // Calculate initial total_amount (can be 0 and updated by a trigger or later logic too)
         $totalAmount = 0;
         foreach ($itemsData as $item) {
-            if (!isset($item['quantity_ordered']) || !isset($item['unit_price']) || $item['quantity_ordered'] <= 0 || $item['unit_price'] < 0) {
-                error_log("Invalid item data: quantity and unit price must be positive.");
+            if (!isset($item['quantity_ordered']) || !isset($item['unit_price']) || !isset($item['unit_id']) ||
+                $item['quantity_ordered'] <= 0 || $item['unit_price'] < 0 || empty($item['unit_id'])) {
+                error_log("Invalid item data: quantity, unit price, and unit_id must be valid and positive where applicable.");
                 return false;
             }
+            // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
             $totalAmount += $item['quantity_ordered'] * $item['unit_price'];
         }
         $data['total_amount'] = $totalAmount;
@@ -80,18 +82,23 @@ class PurchaseOrder extends Model {
             }
 
             // Insert Purchase Order Items
-            $sqlItem = "INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity_ordered, unit_price)
-                        VALUES (:purchase_order_id, :product_id, :quantity_ordered, :unit_price)";
+            $sqlItem = "INSERT INTO purchase_order_items (purchase_order_id, product_id, unit_id, quantity_ordered, unit_price)
+                        VALUES (:purchase_order_id, :product_id, :unit_id, :quantity_ordered, :unit_price)";
 
             foreach ($itemsData as $item) {
-                if (empty($item['product_id'])) { // Basic item validation
+                if (empty($item['product_id']) || empty($item['unit_id'])) { // Basic item validation
                      $this->pdo->rollBack();
-                     error_log("Product ID is missing for an item.");
+                     error_log("Product ID and Unit ID are missing for an item.");
                      return false;
                 }
+                // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
+                // This might involve a quick SELECT check here or be handled by controller layer.
+                // For now, we assume controller has validated.
+
                 $itemParams = [
                     ':purchase_order_id' => $poId,
                     ':product_id' => $item['product_id'],
+                    ':unit_id' => $item['unit_id'],
                     ':quantity_ordered' => $item['quantity_ordered'],
                     ':unit_price' => $item['unit_price']
                 ];
@@ -148,9 +155,10 @@ class PurchaseOrder extends Model {
      * @return array Array of items.
      */
     public function getItemsForPo($poId) {
-        $sql = "SELECT poi.*, p.name as product_name, p.unit_of_measure
+        $sql = "SELECT poi.*, p.name as product_name, u.name as unit_name, u.symbol as unit_symbol
                 FROM purchase_order_items poi
                 JOIN products p ON poi.product_id = p.id
+                JOIN units u ON poi.unit_id = u.id
                 WHERE poi.purchase_order_id = :po_id";
         try {
             return $this->db->select($sql, [':po_id' => $poId]);
@@ -233,17 +241,22 @@ class PurchaseOrder extends Model {
 
                 // Add new items
                 $newTotalAmount = 0;
-                $sqlItem = "INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity_ordered, unit_price)
-                            VALUES (:purchase_order_id, :product_id, :quantity_ordered, :unit_price)";
+                $sqlItem = "INSERT INTO purchase_order_items (purchase_order_id, product_id, unit_id, quantity_ordered, unit_price)
+                            VALUES (:purchase_order_id, :product_id, :unit_id, :quantity_ordered, :unit_price)";
                 foreach ($itemsData as $item) {
-                     if (empty($item['product_id']) || !isset($item['quantity_ordered']) || !isset($item['unit_price']) || $item['quantity_ordered'] <= 0 || $item['unit_price'] < 0) {
+                     if (empty($item['product_id']) || empty($item['unit_id']) ||
+                         !isset($item['quantity_ordered']) || !isset($item['unit_price']) ||
+                         $item['quantity_ordered'] <= 0 || $item['unit_price'] < 0) {
                         $this->pdo->rollBack();
-                        error_log("Invalid item data during update: product_id, quantity and unit price must be valid.");
+                        error_log("Invalid item data during update: product_id, unit_id, quantity and unit price must be valid.");
                         return false;
                     }
+                    // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
+
                     $itemParams = [
                         ':purchase_order_id' => $id,
                         ':product_id' => $item['product_id'],
+                        ':unit_id' => $item['unit_id'],
                         ':quantity_ordered' => $item['quantity_ordered'],
                         ':unit_price' => $item['unit_price']
                     ];

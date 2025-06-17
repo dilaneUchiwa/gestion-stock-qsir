@@ -1,0 +1,107 @@
+/* Minimal reset and basic typography for print */
+body {
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    margin: 0;
+    padding: 0;
+    background-color: #fff; /* Ensure white background for printing */
+    color: #000; /* Ensure black text */
+}
+
+/* Hide elements not relevant for printing */
+.no-print,
+nav,
+footer.site-footer, /* Assuming a common class for site-wide footer */
+.sidebar,
+.action-buttons, /* General class for button containers not meant for print */
+form button[type="submit"], /* Hide submit buttons in forms */
+form a.button-info, /* Hide cancel links in forms */
+a[href^="index.php?url="]:not(.print-safe-link) /* Hide most internal links unless specifically marked safe */
+{
+    display: none !important;
+}
+
+/* General page structure for print */
+.container { /* This class is used in the print views */
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm 5mm !important; /* Some padding for printer margins */
+    border: none !important;
+    box-shadow: none !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    page-break-after: avoid;
+}
+h1 { font-size: 18pt; }
+h2 { font-size: 16pt; }
+h3 { font-size: 14pt; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+    font-size: 9pt;
+    page-break-inside: auto; /* Allow table to break across pages if necessary */
+}
+
+tr {
+    page-break-inside: avoid; /* Try to keep rows on one page */
+    page-break-after: auto;
+}
+
+th, td {
+    border: 1px solid #333; /* Darker borders for better print visibility */
+    padding: 4px 6px;
+    text-align: left;
+    word-wrap: break-word; /* Prevent long words from overflowing */
+}
+
+thead {
+    background-color: #f0f0f0; /* Light gray background for headers */
+    display: table-header-group; /* Ensures header repeats on each page for long tables */
+}
+
+/* Specific overrides for links to show URL in print */
+a[href^="http"]:after,
+a[href^="https"]:after {
+    /* content: " (" attr(href) ")"; Temporarily disable this as it can be noisy */
+    /* font-size: 90%; */
+    /* color: #555; */
+}
+
+/* Invoice/Receipt specific styling could go here if needed */
+.totals table {
+    border: none; /* Remove borders from totals table if it's just for layout */
+}
+.totals th, .totals td {
+    border: none;
+    padding: 3px 0; /* Adjust padding for totals */
+}
+
+.company-details p, .client-details p, .receipt-details p, .payment-details p, .balance-details p, .po-details-main p {
+    margin: 2px 0;
+}
+
+.signatures-section {
+    margin-top: 40px;
+    page-break-inside: avoid;
+}
+.signature {
+    border-top: 1px solid #000;
+    padding-top: 5px;
+    margin-top: 20px; /* Space above the signature line */
+}
+
+/* Ensure images are reasonably sized for print if any are used */
+img {
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+@page {
+    margin: 15mm; /* Standard printer margins */
+}

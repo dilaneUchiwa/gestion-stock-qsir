@@ -22,8 +22,9 @@ if (isset($_GET['status'])) {
 ?>
 
 <h2>Bon de commande #BC-<?php echo htmlspecialchars($purchaseOrder['id']); ?></h2>
-<div style="margin-bottom: 20px;">
+<div style="margin-bottom: 20px;" class="action-buttons no-print">
     <a href="index.php?url=purchaseorder/index" class="button-info">Retour à la liste</a>
+    <a href="index.php?url=purchaseorder/print_po/<?php echo $purchaseOrder['id']; ?>" class="button" target="_blank" style="background-color: #6c757d; color:white;">Imprimer le BC</a>
     <?php if (in_array($purchaseOrder['status'], ['pending', 'partially_received'])): ?>
         <a href="index.php?url=purchaseorder/edit/<?php echo $purchaseOrder['id']; ?>" class="button">Modifier la commande</a>
     <?php endif; ?>
@@ -58,6 +59,7 @@ if (isset($_GET['status'])) {
             <tr>
                 <th>ID Produit</th>
                 <th>Nom du produit</th>
+                <th>Unité</th>
                 <th>Quantité commandée</th>
                 <th>Prix unitaire</th>
                 <th>Sous-total</th>
@@ -68,27 +70,28 @@ if (isset($_GET['status'])) {
             $calculatedTotal = 0;
             foreach ($purchaseOrder['items'] as $item):
                 // $subtotal = $item['quantity_ordered'] * $item['unit_price']; // sub_total is now a generated field
-                $subtotal = $item['sub_total'];
+                $subtotal = $item['sub_total']; // This is a generated column: quantity_ordered * unit_price
                 $calculatedTotal += $subtotal;
             ?>
             <tr>
                 <td><?php echo htmlspecialchars($item['product_id']); ?></td>
-                <td><?php echo htmlspecialchars($item['product_name']); ?> (<?php echo htmlspecialchars($item['unit_of_measure']); ?>)</td>
+                <td><?php echo htmlspecialchars($item['product_name']); ?></td>
+                <td><?php echo htmlspecialchars($item['unit_name'] . ' (' . $item['unit_symbol'] . ')'); ?></td>
                 <td style="text-align: right;"><?php echo htmlspecialchars($item['quantity_ordered']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($item['unit_price'], 2)); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($subtotal, 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$subtotal, 2, ',', ' ')); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="4" style="text-align:right;">Total de la commande (BD) :</th>
-                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format($purchaseOrder['total_amount'], 2)); ?></strong></td>
+                <th colspan="5" style="text-align:right;">Total de la commande (BD) :</th>
+                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$purchaseOrder['total_amount'], 2, ',', ' ')); ?></strong></td>
             </tr>
-            <?php if (abs($calculatedTotal - $purchaseOrder['total_amount']) > 0.001) : // Check if calculated total matches stored total ?>
+            <?php if (abs((float)$calculatedTotal - (float)$purchaseOrder['total_amount']) > 0.001) : // Check if calculated total matches stored total ?>
             <tr>
-                <th colspan="4" style="text-align:right; color: orange;">Total calculé (articles) :</th>
-                <td style="text-align: right; color: orange;"><strong><?php echo htmlspecialchars(number_format($calculatedTotal, 2)); ?></strong></td>
+                <th colspan="5" style="text-align:right; color: orange;">Total calculé (articles) :</th>
+                <td style="text-align: right; color: orange;"><strong><?php echo htmlspecialchars(number_format((float)$calculatedTotal, 2, ',', ' ')); ?></strong></td>
             </tr>
             <?php endif; ?>
         </tfoot>

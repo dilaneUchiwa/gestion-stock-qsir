@@ -37,10 +37,11 @@ class Delivery extends Model {
             return false;
         }
         foreach ($itemsData as $item) {
-            if (empty($item['product_id']) || empty($item['quantity_received']) || $item['quantity_received'] <= 0) {
-                error_log("Invalid item data: product_id and positive quantity_received are required.");
+            if (empty($item['product_id']) || empty($item['unit_id']) || empty($item['quantity_received']) || $item['quantity_received'] <= 0) {
+                error_log("Invalid item data: product_id, unit_id, and positive quantity_received are required.");
                 return false;
             }
+            // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
         }
 
         $this->pdo->beginTransaction();
@@ -81,19 +82,22 @@ class Delivery extends Model {
             }
 
             // Insert Delivery Items & Update Product Stock
-            $sqlItem = "INSERT INTO delivery_items (delivery_id, product_id, quantity_received, purchase_order_item_id)
-                        VALUES (:delivery_id, :product_id, :quantity_received, :purchase_order_item_id)";
-            $productModel = new Product($this->db); // Assuming Product model is available
+            $sqlItem = "INSERT INTO delivery_items (delivery_id, product_id, unit_id, quantity_received, purchase_order_item_id)
+                        VALUES (:delivery_id, :product_id, :unit_id, :quantity_received, :purchase_order_item_id)";
+            $productModel = new Product($this->db);
 
             foreach ($itemsData as $item) {
+                // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
+                // This should ideally be done in the controller or at the start of this method.
+
                 $itemInsertParams = [
                     ':delivery_id' => $deliveryId,
                     ':product_id' => $item['product_id'],
+                    ':unit_id' => $item['unit_id'],
                     ':quantity_received' => $item['quantity_received'],
                     ':purchase_order_item_id' => $item['purchase_order_item_id'] ?? null,
                 ];
-                // $this->db->executeQuery($sqlItem, $itemParams); // Old way
-                $deliveryItemId = $this->db->insert($sqlItem, $itemInsertParams); // Get the ID of the inserted delivery_item
+                $deliveryItemId = $this->db->insert($sqlItem, $itemInsertParams);
 
                 if (!$deliveryItemId) {
                     $this->pdo->rollBack();
@@ -101,19 +105,22 @@ class Delivery extends Model {
                     return false;
                 }
 
-                // Update product stock (only for types that increase stock, e.g. not 'return' from supplier)
+                // Update product stock (only for types that increase stock)
                 if (in_array($data['type'] ?? 'purchase', ['purchase', 'free_sample', 'other'])) {
-                    $notes = "Received via DEL-{$deliveryId}";
+                    // $productModel->updateStock will handle the conversion from $item['unit_id'] to base unit
+                    $notes = "Received via DEL-{$deliveryId} (Item {$deliveryItemId}) in unit ID {$item['unit_id']}. Qty: {$item['quantity_received']}.";
                     if(isset($item['purchase_order_item_id'])) {
-                        $notes .= " (PO Item ID: {$item['purchase_order_item_id']})";
+                        $notes .= " (Ref PO Item ID: {$item['purchase_order_item_id']})";
                     }
+
                     if (!$productModel->updateStock(
-                        $item['product_id'],
-                        $item['quantity_received'], // Positive for increase
-                        'in_delivery',
-                        $deliveryItemId,
-                        'delivery_items',
-                        $notes
+                        $item['product_id'], // productId
+                        'in_delivery',       // movementType
+                        (float)$item['quantity_received'], // quantityInTransactionUnit (positive for increase)
+                        (int)$item['unit_id'],             // transactionUnitId
+                        $deliveryItemId,     // relatedDocumentId
+                        'delivery_items',    // relatedDocumentType
+                        $notes               // notes
                     )) {
                         $this->pdo->rollBack();
                         error_log("Failed to update stock or create movement for product ID {$item['product_id']}.");
@@ -238,10 +245,15 @@ class Delivery extends Model {
      * @return array Array of items.
      */
     public function getItemsForDelivery($deliveryId) {
-        $sql = "SELECT di.*, p.name as product_name, p.unit_of_measure, poi.quantity_ordered as original_quantity_ordered
+        $sql = "SELECT di.*, p.name as product_name,
+                       u.name as unit_name, u.symbol as unit_symbol,
+                       poi.quantity_ordered as original_quantity_ordered,
+                       po_unit.name as po_unit_name, po_unit.symbol as po_unit_symbol
                 FROM delivery_items di
                 JOIN products p ON di.product_id = p.id
+                JOIN units u ON di.unit_id = u.id
                 LEFT JOIN purchase_order_items poi ON di.purchase_order_item_id = poi.id
+                LEFT JOIN units po_unit ON poi.unit_id = po_unit.id
                 WHERE di.delivery_id = :delivery_id";
         try {
             return $this->db->select($sql, [':delivery_id' => $deliveryId]);
@@ -299,15 +311,42 @@ class Delivery extends Model {
                 $stockMovementModel = new StockMovement($this->db); // For explicit movement deletion or reversal movement creation
 
                 foreach ($deliveryItems as $item) {
-                    $reversalNotes = "Reversal for deleted DEL-{$deliveryId}, Item ID: {$item['id']}";
-                    // Option 1: Create a reversal stock movement AND update product stock cache
+                    $productDetails = $productModel->getById($item['product_id']);
+                    if (!$productDetails) {
+                        $this->pdo->rollBack();
+                        error_log("Product ID {$item['product_id']} not found for stock reversal during delivery deletion.");
+                        return false;
+                    }
+
+                    $quantityInBaseUnitToRevert = $item['quantity_received'];
+                    if ($item['unit_id'] != $productDetails['base_unit_id']) {
+                        $productUnits = $productModel->getUnits($item['product_id']);
+                        $conversionFactor = null;
+                        foreach ($productUnits as $pu) {
+                            if ($pu['id'] == $item['unit_id']) {
+                                $conversionFactor = (float)$pu['conversion_factor_to_base_unit'];
+                                break;
+                            }
+                        }
+                        if ($conversionFactor === null || $conversionFactor == 0) {
+                            $this->pdo->rollBack();
+                            error_log("Conversion factor not found or invalid for stock reversal: product ID {$item['product_id']}, unit ID {$item['unit_id']}.");
+                            return false;
+                        }
+                        $quantityInBaseUnitToRevert = $item['quantity_received'] * $conversionFactor;
+                    }
+
+                    $reversalNotes = "Reversal for deleted DEL-{$deliveryId}, Item ID: {$item['id']}. Original qty {$item['quantity_received']} in unit ID {$item['unit_id']}.";
+
+                    // Pass negative quantity in transaction unit to updateStock
                     if (!$productModel->updateStock(
-                        $item['product_id'],
-                        -$item['quantity_received'], // Negative for decrease
-                        'delivery_reversal',
-                        $item['id'], // Reference the original delivery_item_id
-                        'delivery_items', // Document type that was reversed
-                        $reversalNotes
+                        $item['product_id'],      // productId
+                        'delivery_reversal',      // movementType
+                        -(float)$item['quantity_received'], // NEGATIVE quantityInTransactionUnit
+                        (int)$item['unit_id'],               // transactionUnitId (unit of the original delivery item)
+                        $item['id'],              // relatedDocumentId (original delivery_item_id)
+                        'delivery_items',         // relatedDocumentType
+                        $reversalNotes            // notes
                     )) {
                         $this->pdo->rollBack();
                         error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during delivery deletion.");

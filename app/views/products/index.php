@@ -20,7 +20,8 @@
             <tr>
                 <th>ID</th>
                 <th>Nom</th>
-                <th>Unité</th>
+                <th>Catégorie</th>
+                <th>Unité de base</th>
                 <th>Qté en stock</th>
                 <th>Prix d'achat</th>
                 <th class="text-right">Prix de vente</th>
@@ -32,10 +33,11 @@
             <tr class="<?php if ($product['quantity_in_stock'] <= 0) echo 'negative-stock-alert'; // Example: highlight low/no stock ?>">
                 <td><?php echo htmlspecialchars($product['id']); ?></td>
                 <td><a href="index.php?url=stock/history/<?php echo $product['id']; ?>"><?php echo htmlspecialchars($product['name']); ?></a></td>
-                <td><?php echo htmlspecialchars($product['unit_of_measure']); ?></td>
+                <td><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
+                <td><?php echo htmlspecialchars($product['base_unit_name'] ?? 'N/A'); ?></td>
                 <td class="text-right <?php if ($product['quantity_in_stock'] <= 0) echo 'font-bold'; ?>"><?php echo htmlspecialchars($product['quantity_in_stock']); ?></td>
-                <td class="text-right"><?php echo htmlspecialchars(number_format($product['purchase_price'] ?? 0, 2)); ?></td>
-                <td class="text-right"><?php echo htmlspecialchars(number_format($product['selling_price'] ?? 0, 2)); ?></td>
+                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')); ?></td>
+                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')); ?></td>
                 <td>
                     <a href="index.php?url=products/show/<?php echo $product['id']; ?>" class="button button-info btn-sm">Voir</a>
                     <a href="index.php?url=products/edit/<?php echo $product['id']; ?>" class="button btn-sm">Modifier</a>

@@ -1,0 +1,121 @@
+<?php
+// $title and $products (enriched) are passed from ReportController@current_stock
+$pageTitle = $title ?? "Rapport d'État du Stock Actuel";
+?>
+
+<h2><?php echo htmlspecialchars($pageTitle); ?></h2>
+
+<?php if (isset($low_stock_threshold) && $low_stock_threshold !== null): ?>
+    <p class="alert alert-info">Affichage des produits avec un stock inférieur ou égal à <?php echo htmlspecialchars($low_stock_threshold); ?> (en unité de base).</p>
+<?php endif; ?>
+
+<div class="table-responsive-container" style="margin-top: 20px;">
+    <?php if (empty($products)): ?>
+        <p>Aucun produit trouvé correspondant aux critères actuels.</p>
+    <?php else: ?>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>ID Produit</th>
+                <th>Nom du Produit</th>
+                <th>Catégorie</th>
+                <th style="text-align: right;">Stock (Unité de Base)</th>
+                <th>Unité de Base</th>
+                <th>Stock (Autres Unités Configurées)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($products as $product): ?>
+            <tr>
+                <td><?php echo htmlspecialchars($product['id']); ?></td>
+                <td>
+                    <a href="index.php?url=products/show/<?php echo $product['id']; ?>">
+                        <?php echo htmlspecialchars($product['name']); ?>
+                    </a>
+                </td>
+                <td><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
+                <td style="text-align: right; font-weight: bold;">
+                    <?php echo htmlspecialchars(number_format((float)($product['quantity_in_stock'] ?? 0), 2, ',', ' ')); ?>
+                </td>
+                <td><?php echo htmlspecialchars($product['base_unit_symbol'] ?? $product['base_unit_name'] ?? 'N/A'); ?></td>
+                <td>
+                    <?php if (!empty($product['configured_units']) && count($product['configured_units']) > 1): ?>
+                        <ul>
+                            <?php foreach ($product['configured_units'] as $configured_unit): ?>
+                                <?php if ($configured_unit['unit_id'] != $product['base_unit_id']): // Don't re-display base unit stock ?>
+                                    <?php
+                                    $stockInBase = (float)($product['quantity_in_stock'] ?? 0);
+                                    $factor = (float)$configured_unit['conversion_factor_to_base_unit'];
+                                    $stockInConfiguredUnit = ($factor != 0) ? ($stockInBase / $factor) : 0;
+                                    ?>
+                                    <li>
+                                        <?php echo htmlspecialchars(number_format($stockInConfiguredUnit, 2, ',', ' ')); ?>
+                                        <?php echo htmlspecialchars($configured_unit['symbol'] ?? $configured_unit['name']); ?>
+                                    </li>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php elseif (count($product['configured_units']) <= 1 && !empty($product['base_unit_name'])): ?>
+                        <small><em>Uniquement l'unité de base est configurée.</em></small>
+                    <?php else: ?>
+                        <small><em>Aucune unité alternative configurée ou facteurs invalides.</em></small>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</div>
+
+<style>
+    /* Basic styling for the report table, can be moved to a global CSS */
+    .table-responsive-container {
+        overflow-x: auto;
+    }
+    .table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #212529;
+        border-collapse: collapse;
+    }
+    .table th,
+    .table td {
+        padding: 0.75rem;
+        vertical-align: top;
+        border-top: 1px solid #dee2e6;
+    }
+    .table thead th {
+        vertical-align: bottom;
+        border-bottom: 2px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+    .table tbody + tbody {
+        border-top: 2px solid #dee2e6;
+    }
+    .table-bordered {
+        border: 1px solid #dee2e6;
+    }
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #dee2e6;
+    }
+    .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    .table td ul {
+        padding-left: 15px;
+        margin-bottom: 0;
+    }
+     .alert {
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+        border-radius: 0.25rem;
+    }
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+</style>

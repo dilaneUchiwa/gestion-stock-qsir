@@ -6,17 +6,17 @@
 *   Navigateur Web
 *   Routeur (`public/index.php`)
 *   `SaleController.php`
-*   `Sale.php` (Modèle Vente)
-*   `SaleItem.php` (Modèle Ligne Vente)
-*   `Client.php` (Modèle Client - pour lister/vérifier clients)
-*   `Product.php` (Modèle Produit - pour lister produits, vérifier stock, MàJ stock)
-*   `StockMovement.php` (Modèle Mouvement de Stock)
+*   `SaleModel.php` (Nom corrigé)
+*   `ClientModel.php`
+*   `ProductModel.php`
+*   `UnitModel.php`
+*   `StockMovementModel.php` (utilisé indirectement par `ProductModel->updateStock()`)
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)
-*   Vue (`sales/create_immediate.php`, `layouts/main.php`)
-*   JavaScript (côté client pour l'ajout dynamique de lignes d'items)
+*   Vue (`sales/create_immediate.php` ou `sales/create_deferred.php`, `layouts/main.php`)
+*   JavaScript (côté client pour ajout dynamique d'items, gestion des unités, calculs de totaux)
 
-**Séquence :**
+**Séquence (exemple pour Paiement Immédiat) :**
 
 1.  **Utilisateur -> Navigateur Web :**
     *   Navigue vers la page de création de vente (ex: "Nouvelle Vente (Immédiat)").
@@ -25,73 +25,73 @@
 2.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le Routeur appelle `SaleController::create_immediate_payment()`.
 
-3.  **Routeur -> `SaleController::create_immediate_payment()` :**
-    *   `SaleController` (via sa méthode helper `_renderCreateForm`) charge les clients (`ClientModel->getAll()`) et les produits (`ProductModel->getAll()`).
-    *   Appelle `renderView('sales/create_immediate', $data)` avec clients, produits, etc.
+3.  **Routeur -> `SaleController::create_immediate_payment()` (via `_renderCreateForm`) :**
+    *   Charge `ClientModel`, `ProductModel`, `UnitModel`.
+    *   Récupère clients, produits (avec info unité de base), toutes les unités.
+    *   Pour chaque produit, récupère ses unités configurées via `ProductModel->getUnitsForProduct()` et construit `$productUnitsMap`.
+    *   Appelle `renderView('sales/create_immediate', $data)` avec toutes ces données.
 
 4.  **`SaleController` -> Vue (`sales/create_immediate.php`) :**
-    *   La vue affiche le formulaire de vente.
-    *   Les listes de clients et produits sont utilisées pour les sélecteurs.
-    *   Le JavaScript pour l'ajout/suppression dynamique de lignes d'items est initialisé.
+    *   La vue affiche le formulaire.
+    *   Listes de clients, produits peuplent les `<select>` initiaux.
+    *   `$productUnitsMap` est encodé en JSON pour le JavaScript.
+    *   JS pour ajout/suppression de lignes, population des `select` d'unités, affichage stock converti, et calculs de totaux (brut, réduction, net, montant versé, monnaie) est initialisé.
 
 5.  **Utilisateur -> Navigateur Web (Formulaire) :**
-    *   Sélectionne un client (ou entre un nom de client occasionnel), date de vente.
-    *   Utilise l'interface JavaScript pour ajouter des lignes de produits :
-        *   Sélectionne un produit (le JS peut afficher le stock disponible).
-        *   Entre la quantité vendue (le JS peut valider par rapport au stock affiché).
-        *   Le prix unitaire est pré-rempli (prix de vente du produit), mais peut être modifiable.
-        *   Le JavaScript met à jour le sous-total et le total général.
-    *   Clique sur "Enregistrer Vente (Payée)".
-    *   Requête POST (ex: `index.php?url=sale/store`) avec les données de la vente et un tableau d'items. `payment_type` sera 'immediate', `payment_status` 'paid'.
+    *   Remplit les détails du client, date, etc.
+    *   Ajoute des lignes d'articles :
+        *   Sélectionne un produit : JS peuple le `select` d'unité, affiche stock converti.
+        *   Sélectionne une unité.
+        *   Entre quantité vendue (JS peut valider contre stock affiché).
+        *   Le prix unitaire est pré-rempli (peut être modifiable).
+        *   JS met à jour sous-total ligne, totaux généraux.
+    *   Entre Montant Réduction, Montant Versé. JS met à jour Total Net et Monnaie à Rendre.
+    *   Clique sur "Enregistrer Vente".
+    *   Requête POST (`index.php?url=sale/store`) avec données vente (incluant `discount_amount`, `amount_tendered`) et tableau `items` (chaque item avec `product_id`, `unit_id`, `quantity_sold`, `unit_price`).
 
 6.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le Routeur appelle `SaleController::store()`.
 
 7.  **Routeur -> `SaleController::store()` :**
     *   Récupère et valide les données POST (en-tête et items).
-        *   Vérifie qu'un client (enregistré ou occasionnel) est spécifié.
-        *   Vérifie que `payment_type` est correct.
-        *   Si validation échoue : Recharge la vue `create_immediate.php` avec erreurs et données.
-    *   Si validation réussit : Appelle `SaleModel->createSale($data, $itemsData)`.
+        *   Validation client, dates.
+        *   Pour chaque item : valide `unit_id` avec `ProductModel->isUnitValidForProduct()`.
+        *   **Validation de Stock (Côté Serveur) :** Pour chaque item, convertit `quantity_sold` en unité de base, vérifie si stock suffisant.
+        *   Calcule `grossTotal`, `netTotalPayable` (total_amount pour DB), `change_due`. Valide `discount_amount`, `amount_tendered`.
+        *   Si validation échoue : Recharge la vue `create_immediate.php` (via `_renderCreateForm`) avec erreurs, données soumises, et toutes les listes/maps.
+    *   Si validation réussit : Appelle `SaleModel->createSale($data, $itemsData)`. `$data` inclut `total_amount` (net), `discount_amount`, `amount_tendered`, `change_due`.
 
 8.  **`SaleController` -> `SaleModel::createSale($data, $itemsData)` :**
-    *   Le modèle `Sale.php` commence une transaction de base de données.
-    *   **Vérification du stock pour tous les items :**
-        *   Pour chaque item dans `$itemsData`, appelle `ProductModel->getById()` pour vérifier `quantity_in_stock`.
-        *   Si stock insuffisant pour un item, rollback et retourne un message d'erreur spécifique (ex: "Insufficient stock for product X").
-    *   **Calcul du montant total :** Basé sur `$itemsData`.
+    *   Le modèle `SaleModel.php` commence une transaction PDO.
+    *   **Validation de Stock (Transactionnelle) :** Re-vérifie le stock pour chaque item (comme fait dans le contrôleur, mais au sein de la transaction pour atomicité). Si insuffisant, rollback, retourne message d'erreur.
     *   **Insertion de l'en-tête de la vente :**
-        *   Construit SQL INSERT pour `sales`.
-        *   Appelle `Database->insert()` pour `sales`. Récupère `$saleId`.
-        *   Si échec, rollback et retourne `false`.
+        *   Construit SQL INSERT pour `sales` (incluant `total_amount` (net), `discount_amount`, `amount_tendered`, `change_due`, `paid_amount` (initialisé si vente immédiate payée)).
+        *   Appelle `Database->insert()`. Récupère `$saleId`.
+        *   Si échec, rollback, retourne `false`.
     *   **Pour chaque item dans `$itemsData` :**
         *   **Insertion de la ligne de vente :**
-            *   Construit SQL INSERT pour `sale_items` (incluant `$saleId`, `product_id`, `quantity_sold`, `unit_price`).
-            *   Appelle `Database->insert()`. Récupère `$saleItemId`.
-            *   Si échec, rollback et retourne `false`.
-        *   **Mise à jour du stock du produit (et création du mouvement de stock) :**
-            *   Appelle `ProductModel->updateStock($productId, -$quantitySold, 'out_sale', $saleItemId, 'sale_items', $notes)`.
-                *   `ProductModel->updateStock()` (transaction interne) :
-                    *   UPDATE `products` SET `quantity_in_stock` = `quantity_in_stock` - `$quantitySold`.
-                    *   INSERT dans `stock_movements` (type 'out_sale', `related_document_id` = `$saleItemId`, `related_document_type` = 'sale_items').
-                *   Si `updateStock` échoue, `createSale` fait un rollback et retourne `false`.
-    *   Si tout réussit : Commit la transaction principale.
+            *   Construit SQL INSERT pour `sale_items` (incluant `sale_id`, `product_id`, `unit_id`, `quantity_sold`, `unit_price`).
+            *   Appelle `Database->insert()`. Récupère `$saleItemId`. Si échec, rollback, retourne `false`.
+        *   **Mise à jour du stock du produit :**
+            *   Appelle `ProductModel->updateStock($productId, 'out_sale', -(float)$item['quantity_sold'], (int)$item['unit_id'], $saleItemId, 'sale_items', $notes)`.
+            *   Si `updateStock` échoue (ex: erreur de conversion d'unité non détectée avant), `createSale` fait un rollback et retourne `false` ou un message d'erreur.
+    *   Si tout réussit : Commit la transaction.
     *   Retourne `$saleId`.
 
-9.  **`SaleModel` -> `Database` / `ProductModel` (multiples appels) :**
-    *   Exécutions des requêtes et des logiques métier.
+9.  **`SaleModel` -> `Database` / `ProductModel` (appels multiples) :**
+    *   Exécutions des requêtes et logiques métier.
 
 10. **Modèles -> `SaleModel` :**
-    *   Résultats des opérations.
+    *   Résultats.
 
 11. **`SaleModel` -> `SaleController` :**
-    *   Retourne `$saleId` (si succès), `false` (si échec général), ou un message d'erreur string (ex: stock insuffisant).
+    *   Retourne `$saleId` ou message d'erreur/`false`.
 
 12. **`SaleController::store()` (fin) :**
-    *   Si succès (`$saleIdOrError` est un ID numérique) : Redirection vers `sale/show/$saleIdOrError` avec message de succès.
-    *   Si échec (string ou false) : Recharge la vue `create_immediate.php` avec le message d'erreur.
+    *   Si succès (`$saleIdOrError` est un ID) : Redirection vers `sale/show/$saleIdOrError`.
+    *   Si échec : Recharge la vue `create_immediate.php` avec l'erreur.
 
 13. **Navigateur Web :**
-    *   Suit la redirection et affiche la vente nouvellement créée ou le formulaire avec erreurs.
+    *   Suit la redirection ou affiche le formulaire avec erreurs.
 
 **Fin de la Séquence.**

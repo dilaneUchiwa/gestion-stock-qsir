@@ -1,0 +1,63 @@
+**Diagramme de Séquence : Impression de Documents (Générique)**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   Contrôleur Spécifique (ex: `SaleController.php`, `PurchaseorderController.php`, `DeliveryController.php`)
+*   Modèle Spécifique (ex: `SaleModel.php`, `PurchaseOrderModel.php`, `DeliveryModel.php`, `SalePaymentModel.php`)
+*   `Controller.php` (Classe Core - pour `renderPrintView()`)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue d'Impression Spécifique (ex: `sales/print_invoice.php`, `procurement/purchase_orders/print_po.php`)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Sur une page de visualisation (ex: détail d'une vente, d'un bon de commande), clique sur un bouton/lien "Imprimer" (ex: "Imprimer la Facture", "Imprimer le Reçu", "Imprimer le BC", "Imprimer le BL").
+    *   Le navigateur envoie une requête GET vers une URL d'impression dédiée, souvent avec un ID.
+        *   Exemple Facture : `index.php?url=sale/print_invoice/123` (où 123 est `$saleId`).
+        *   Exemple Reçu : `index.php?url=sale/print_payment_receipt/789` (où 789 est `$paymentId`).
+        *   Exemple BC : `index.php?url=purchaseorder/print_po/456` (où 456 est `$poId`).
+        *   Exemple BL : `index.php?url=delivery/print_delivery_note/101` (où 101 est `$deliveryId`).
+    *   Le lien s'ouvre généralement dans un nouvel onglet (`target="_blank"`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le serveur reçoit la requête GET.
+    *   Le Routeur (`public/index.php`) analyse l'URL et détermine le Contrôleur Spécifique et la méthode d'impression à appeler (ex: `SaleController::print_invoice($saleId)`).
+
+3.  **Routeur -> Contrôleur Spécifique (méthode d'impression) :**
+    *   La méthode d'impression (ex: `print_invoice($saleId)`) est exécutée.
+    *   **Récupération des Données :**
+        *   Le contrôleur appelle la ou les méthodes nécessaires de son/ses modèle(s) pour récupérer toutes les données requises pour le document.
+            *   Ex: `SaleModel->getByIdWithDetails($saleId)` pour une facture.
+            *   Ex: `SalePaymentModel->getById($paymentId)` et `SaleModel->getByIdWithDetails($payment['sale_id'])` pour un reçu.
+        *   Ces méthodes de modèle interagissent avec la base de données via `Database.php`.
+    *   Si les données principales ne sont pas trouvées (ex: vente ou paiement inexistant), une vue d'erreur 404 est rendue (potentiellement via `renderPrintView` ou une redirection vers une page d'erreur standard).
+    *   **Préparation des Données pour la Vue :**
+        *   Le contrôleur assemble les données dans un tableau `$data` (incluant l'objet principal, les items, les informations client/fournisseur, les totaux calculés si nécessaire pour le document, et un titre pour la page `<title>`).
+
+4.  **Contrôleur Spécifique -> `Controller::renderPrintView($viewName, $data)` :**
+    *   Le contrôleur appelle la méthode `renderPrintView()` (héritée de `Controller.php`), en passant le nom de la vue d'impression spécifique (ex: `sales/print_invoice`) et le tableau `$data`.
+
+5.  **`Controller::renderPrintView()` -> Vue d'Impression Spécifique :**
+    *   La méthode `renderPrintView()` localise le fichier de la vue d'impression.
+    *   Elle extrait les variables du tableau `$data`.
+    *   Elle inclut directement le fichier PHP de la vue d'impression (ex: `app/views/sales/print_invoice.php`).
+    *   **Important :** Cette méthode *ne charge pas* le layout principal du site (`layouts/main.php`).
+
+6.  **Vue d'Impression Spécifique :**
+    *   Le fichier de vue contient la structure HTML optimisée pour l'impression.
+    *   Il est lié à `print_style.css` (ou contient des styles CSS `@media print` inline ou dans une balise `<style>`).
+    *   Affiche les données passées (détails de l'entreprise, client/fournisseur, items, totaux, etc.).
+    *   Peut inclure un bouton "Imprimer" via JavaScript (`window.print()`) et "Fermer" (`window.close()`) dans une section `.no-print` pour la prévisualisation dans le navigateur.
+
+7.  **Serveur Web -> Navigateur Web :**
+    *   Le HTML généré par la vue d'impression est retourné au navigateur.
+
+8.  **Navigateur Web :**
+    *   Affiche la page HTML (souvent dans un nouvel onglet).
+    *   L'utilisateur peut ensuite utiliser la fonction d'impression de son navigateur (Ctrl+P / Cmd+P ou via le bouton "Imprimer" si présent) pour imprimer le document ou le sauvegarder en PDF.
+
+**Fin de la Séquence.**

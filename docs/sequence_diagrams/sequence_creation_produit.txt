@@ -6,8 +6,10 @@
 *   Navigateur Web
 *   Routeur (`public/index.php`)
 *   `ProductsController.php`
-*   `Product.php` (Modèle)
-*   `StockMovement.php` (Modèle)
+*   `ProductModel.php`
+*   `ProductCategoryModel.php` (pour lister les catégories)
+*   `UnitModel.php` (pour lister les unités)
+*   `StockMovementModel.php`
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)
 *   Vue (`products/create.php`, `products/show.php`, `layouts/main.php`)
@@ -15,85 +17,83 @@
 **Séquence :**
 
 1.  **Utilisateur -> Navigateur Web :**
-    *   Clique sur "Ajouter Produit" (ou un lien similaire).
-    *   Le navigateur envoie une requête GET (ex: `index.php?url=products/create`).
+    *   Clique sur "Ajouter Produit".
+    *   Requête GET (ex: `index.php?url=products/create`).
 
 2.  **Navigateur Web -> Serveur Web (Routeur) :**
-    *   Le serveur reçoit la requête GET.
-    *   Le Routeur (`public/index.php`) analyse l'URL.
-    *   Il détermine que `ProductsController` et sa méthode `create()` doivent être appelés.
+    *   Le Routeur appelle `ProductsController::create()`.
 
 3.  **Routeur -> `ProductsController::create()` :**
-    *   Le contrôleur est instancié.
-    *   La méthode `create()` est exécutée.
-    *   `ProductsController` peut charger des données initiales si nécessaire (ex: liste des produits parents via `ProductModel->getAll()` pour le selecteur de parent).
-    *   `ProductsController` appelle `renderView('products/create', $data)`.
+    *   `ProductsController` charge `ProductCategoryModel` et `UnitModel`.
+    *   Appelle `ProductCategoryModel->getAll()` pour obtenir la liste des catégories.
+    *   Appelle `UnitModel->getAll()` pour obtenir la liste des unités (pour l'unité de base et les unités alternatives).
+    *   Appelle `renderView('products/create', $data)` avec les catégories, les unités, etc.
 
-4.  **`ProductsController` -> Vue (`products/create.php`, `layouts/main.php`) :**
-    *   La vue `products/create.php` est rendue, insérée dans le layout `main.php`.
-    *   Un formulaire HTML pour la création de produit est affiché.
+4.  **`ProductsController` -> Vue (`products/create.php`) :**
+    *   La vue affiche le formulaire avec des `<select>` pour la catégorie et l'unité de base, et une section pour les unités alternatives.
 
 5.  **Utilisateur -> Navigateur Web :**
-    *   Remplit les champs du formulaire (nom, description, prix, stock initial, etc.).
-    *   Clique sur le bouton "Soumettre" (ou "Ajouter Produit").
-    *   Le navigateur envoie une requête POST (ex: `index.php?url=products/store`) avec les données du formulaire.
+    *   Remplit les champs du formulaire (nom, description, catégorie, unité de base, prix, stock initial, etc.).
+    *   Ajoute potentiellement des unités alternatives avec leurs facteurs de conversion.
+    *   Clique sur "Ajouter Produit".
+    *   Le navigateur envoie une requête POST (`index.php?url=products/store`) avec les données du formulaire, y compris `category_id`, `base_unit_id`, et un tableau `alternative_units` si fourni.
 
 6.  **Navigateur Web -> Serveur Web (Routeur) :**
-    *   Le serveur reçoit la requête POST.
-    *   Le Routeur analyse l'URL et détermine que `ProductsController` et sa méthode `store()` doivent être appelés.
+    *   Le Routeur appelle `ProductsController::store()`.
 
 7.  **Routeur -> `ProductsController::store()` :**
-    *   La méthode `store()` est exécutée.
-    *   Les données POST (`$_POST`) sont récupérées et validées.
-        *   Si validation échoue : `ProductsController` recharge la vue `products/create.php` avec les erreurs et les données soumises. Retour à l'étape 4 (avec erreurs affichées).
-    *   Si validation réussit : `ProductsController` appelle `ProductModel->create($data)`.
+    *   Récupère les données POST.
+    *   Valide les données:
+        *   Nom, `base_unit_id` sont requis.
+        *   `category_id` (si fourni) doit exister.
+        *   `base_unit_id` doit exister.
+        *   Les `unit_id` des unités alternatives (si fournies) doivent exister et les facteurs de conversion doivent être numériques.
+        *   Si validation échoue : Recharge la vue `products/create.php` avec erreurs, données soumises, listes de catégories/unités.
+    *   Si validation réussit : Appelle `ProductModel->create($data)`. `$data` inclut `category_id`, `base_unit_id`, etc.
 
 8.  **`ProductsController` -> `ProductModel::create($data)` :**
-    *   Le modèle `Product.php` reçoit les données validées.
-    *   Il construit une requête SQL INSERT pour la table `products`.
-    *   Il interagit avec `Database.php` pour exécuter la requête.
+    *   Le modèle `ProductModel.php` commence une transaction PDO.
+    *   Construit une requête SQL INSERT pour `products` avec les champs validés.
+    *   Exécute la requête via `Database->insert()`. Récupère `$productId`.
+    *   Si l'insertion du produit réussit :
+        *   Appelle `$this->addUnit($productId, $data['base_unit_id'], 1.0, true)` pour ajouter l'unité de base à `product_units`. (Le `true` est un drapeau interne).
+        *   Si échec d'ajout de l'unité de base, rollback et retourne `false`.
+    *   Si tout réussit jusqu'ici, commit la transaction PDO.
+    *   Retourne `$productId`.
 
-9.  **`ProductModel` -> `Database::insert($sql, $params)` :**
-    *   La classe `Database` exécute la requête SQL INSERT.
-    *   Retourne l'ID du nouveau produit inséré (ou false en cas d'échec).
+9.  **`ProductModel` -> `Database` (Appels multiples potentiels) :**
+    *   Exécute INSERT pour `products`.
+    *   Exécute INSERT pour `product_units` (pour l'unité de base).
 
 10. **`Database` -> `ProductModel` :**
-    *   L'ID du nouveau produit (ou l'échec) est retourné au modèle.
+    *   Résultats des insertions.
 
 11. **`ProductModel` -> `ProductsController` :**
-    *   Le modèle retourne l'ID du nouveau produit (ou l'échec) au contrôleur.
+    *   Retourne `$productId` (si succès) ou `false` (si échec).
 
 12. **`ProductsController::store()` (suite) :**
-    *   Si la création du produit a réussi (`$productId` est valide) ET si un stock initial (`$data['quantity_in_stock']`) a été fourni et est > 0 :
-        *   `ProductsController` instancie `StockMovementModel`.
-        *   `ProductsController` appelle `StockMovementModel->createMovement([...])` avec :
-            *   `product_id = $productId`
-            *   `type = 'initial_stock'`
-            *   `quantity = $data['quantity_in_stock']`
-            *   `notes = 'Initial stock set during product creation.'`
-        *   (Note: `ProductModel->create()` est supposé avoir déjà mis à jour `products.quantity_in_stock` dans la table `products`.)
+    *   Si `$productId` est valide :
+        *   **Gestion des Unités Alternatives :** Si `$_POST['alternative_units']` est fourni et est un tableau :
+            *   Pour chaque unité alternative (`altUnit`) :
+                *   Valider `altUnit['unit_id']` et `altUnit['conversion_factor']`.
+                *   S'assurer que `altUnit['unit_id']` n'est pas égal à `base_unit_id`.
+                *   Appeler `ProductModel->addUnit($productId, $altUnit['unit_id'], $altUnit['conversion_factor'])`.
+                *   Si `addUnit` échoue pour une unité alternative, enregistrer l'erreur (mais ne pas nécessairement annuler toute la création du produit à ce stade, ou le faire si c'est critique).
+        *   **Gestion du Stock Initial :** Si un stock initial (`$data['quantity_in_stock']`) > 0 a été fourni :
+            *   `ProductsController` instancie `StockMovementModel`.
+            *   Appelle `StockMovementModel->createMovement()` avec :
+                *   `product_id = $productId`
+                *   `type = 'initial_stock'`
+                *   `quantity_in_transaction_unit = $data['quantity_in_stock']`
+                *   `transaction_unit_id = $data['base_unit_id']` (le stock initial est dans l'unité de base)
+                *   `notes = 'Stock initial lors de la création du produit.'`
+            *   (Le `ProductModel->create()` a déjà mis à jour `products.quantity_in_stock`.)
+    *   Si tout a réussi (ou partiellement pour les alternatives) :
+        *   Redirection vers `products/show/$productId` avec message de succès.
+    *   Si la création initiale du produit dans `ProductModel->create()` a échoué :
+        *   Recharge la vue `products/create.php` avec un message d'erreur général et les données/listes.
 
-13. **`ProductsController` -> `StockMovementModel::createMovement($data)` :**
-    *   Le modèle `StockMovement.php` construit une requête SQL INSERT pour la table `stock_movements`.
-    *   Il interagit avec `Database.php` pour exécuter la requête.
-
-14. **`StockMovementModel` -> `Database::insert($sql, $params)` :**
-    *   La classe `Database` exécute la requête SQL INSERT pour le mouvement de stock.
-
-15. **`Database` -> `StockMovementModel` :**
-    *   Retourne le succès/échec de l'insertion du mouvement.
-
-16. **`StockMovementModel` -> `ProductsController` :**
-    *   Retourne le succès/échec au contrôleur.
-
-17. **`ProductsController::store()` (fin) :**
-    *   Si tout a réussi :
-        *   `ProductsController` effectue une redirection HTTP vers la page de visualisation du produit (ex: `index.php?url=products/show/$productId&status=created_success`).
-    *   Si la création du produit ou du mouvement de stock a échoué :
-        *   `ProductsController` recharge la vue `products/create.php` avec un message d'erreur général.
-
-18. **Navigateur Web :**
-    *   Suit la redirection (si succès) et affiche la page du produit nouvellement créé avec un message de succès.
-    *   Ou affiche le formulaire de création à nouveau avec des erreurs.
+13. **Navigateur Web :**
+    *   Suit la redirection et affiche le produit créé ou le formulaire avec erreurs.
 
 **Fin de la Séquence.**

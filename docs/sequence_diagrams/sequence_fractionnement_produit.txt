@@ -1,0 +1,92 @@
+**Diagramme de Séquence : Fractionnement d'un Produit**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   `FractioningController.php`
+*   `ProductModel.php`
+*   `UnitModel.php` (pour lister les unités)
+*   `StockMovementModel.php` (utilisé indirectement via `ProductModel->updateStock()`)
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vue (`fractioning/create.php`, `layouts/main.php`)
+*   JavaScript (pour sélection dynamique d'unités et estimation)
+
+**Séquence :**
+
+1.  **Utilisateur -> Navigateur Web :**
+    *   Navigue vers la page de fractionnement (ex: via un lien "Fractionner Produit").
+    *   Requête GET (ex: `index.php?url=fractioning/index` ou `fractioning/create`).
+
+2.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `FractioningController::index()` (ou `create()`).
+
+3.  **Routeur -> `FractioningController::index()` :**
+    *   Charge `ProductModel`, `UnitModel`.
+    *   Appelle `ProductModel->getAll()` (pour lister les produits sources/cibles).
+    *   Pour chaque produit, appelle `ProductModel->getUnitsForProduct()` pour construire `$productUnitsMap`.
+    *   Appelle `renderView('fractioning/create', $data)` avec produits, `$productUnitsMap`, etc.
+
+4.  **`FractioningController` -> Vue (`fractioning/create.php`) :**
+    *   La vue affiche le formulaire de fractionnement.
+    *   `$productUnitsMap` est passé au JavaScript pour peupler dynamiquement les `select` d'unités source et cible.
+
+5.  **Utilisateur -> Navigateur Web (Formulaire) :**
+    *   Sélectionne le produit source (`source_product_id`). JS peuple le `select` d'unité source.
+    *   Sélectionne l'unité source (`source_unit_id`).
+    *   Entre la quantité à fractionner (`source_quantity_to_fraction`).
+    *   Sélectionne le produit cible (`target_product_id` - pour V1, JS le force à être identique au source). JS peuple le `select` d'unité cible.
+    *   Sélectionne l'unité cible (`target_unit_id`).
+    *   JS peut afficher une estimation de la quantité cible produite basée sur les facteurs de conversion.
+    *   Clique sur "Exécuter le Fractionnement".
+    *   Requête POST (`index.php?url=fractioning/process`) avec les données du formulaire.
+
+6.  **Navigateur Web -> Serveur Web (Routeur) :**
+    *   Le Routeur appelle `FractioningController::process()`.
+
+7.  **Routeur -> `FractioningController::process()` :**
+    *   Récupère les données POST.
+    *   Valide les données :
+        *   Champs requis remplis.
+        *   Produits existent.
+        *   Unités valides pour les produits respectifs (via `ProductModel->isUnitValidForProduct()`).
+        *   `source_quantity_to_fraction` > 0.
+    *   **Validation du Stock Source :**
+        *   Récupère le produit source (`ProductModel->getById()`).
+        *   Récupère le facteur de conversion pour `source_unit_id` (`ProductModel->getUnitsForProduct()`).
+        *   Calcule `source_quantity_to_fraction_in_base_unit`.
+        *   Vérifie si `product['quantity_in_stock'] >= source_quantity_to_fraction_in_base_unit`.
+    *   **Calcul de la Quantité Cible :**
+        *   Récupère le facteur de conversion pour `target_unit_id` du produit cible.
+        *   Calcule `calculated_target_quantity_in_target_unit = source_quantity_to_fraction_in_base_unit / target_conversion_factor`.
+    *   Si une validation échoue : Recharge la vue `fractioning/create.php` avec erreurs et données.
+    *   Si tout est valide : Commence une transaction PDO globale (`$this->productModel->getPdo()->beginTransaction()`).
+
+8.  **`FractioningController` -> `ProductModel::updateStock()` (pour produit source) :**
+    *   Appelle `updateStock()` avec :
+        *   `productId = source_product_id`
+        *   `movementType = 'split_out'`
+        *   `quantityInTransactionUnit = - (float)$source_quantity_to_fraction` (négatif)
+        *   `transactionUnitId = source_unit_id`
+        *   `notes = "Fractionnement - sortie..."`
+    *   Si `updateStock` retourne `false`, rollback la transaction globale, affiche une erreur et retourne.
+
+9.  **`FractioningController` -> `ProductModel::updateStock()` (pour produit cible) :**
+    *   Appelle `updateStock()` avec :
+        *   `productId = target_product_id`
+        *   `movementType = 'split_in'`
+        *   `quantityInTransactionUnit = (float)$calculated_target_quantity_in_target_unit` (positif)
+        *   `transactionUnitId = target_unit_id`
+        *   `notes = "Fractionnement - entrée..."`
+    *   Si `updateStock` retourne `false`, rollback la transaction globale, affiche une erreur et retourne.
+
+10. **`FractioningController::process()` (suite) :**
+    *   Si les deux appels à `updateStock` ont réussi : Commit la transaction PDO globale.
+    *   Redirige vers `fractioning/index` avec un message de succès.
+
+11. **Navigateur Web :**
+    *   Suit la redirection et affiche un message de succès ou le formulaire avec erreurs.
+
+**Fin de la Séquence.**

@@ -8,6 +8,7 @@
     <h2><?php echo htmlspecialchars($client['name']); ?></h2>
     <p><strong>ID:</strong> <?php echo htmlspecialchars($client['id']); ?></p>
     <p><strong>Type de client:</strong> <?php echo htmlspecialchars(ucfirst($client['client_type'])); ?></p>
+    <p><strong>Catégorie:</strong> <?php echo htmlspecialchars($client['client_category_name'] ?? 'N/A'); ?></p>
     <p><strong>E-mail:</strong> <?php echo htmlspecialchars($client['email'] ?? 'N/A'); ?></p>
     <p><strong>Téléphone:</strong> <?php echo htmlspecialchars($client['phone'] ?? 'N/A'); ?></p>
     <p><strong>Adresse:</strong> <?php echo nl2br(htmlspecialchars($client['address'] ?? 'N/A')); ?></p>

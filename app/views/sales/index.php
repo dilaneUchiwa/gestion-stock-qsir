@@ -30,30 +30,40 @@ if (isset($_GET['status'])) {
                 <th>ID</th>
                 <th>Date</th>
                 <th>Client</th>
-                <th>Montant total</th>
-                <th>Type de paiement</th>
-                <th>Statut du paiement</th>
-                <th>Date d'échéance</th>
+                <th>Montant Net</th>
+                <th>Montant Payé</th>
+                <th>Solde Restant</th>
+                <th>Type Pmt.</th>
+                <th>Statut Pmt.</th>
+                <th>Échéance</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($sales as $sale): ?>
+            <?php foreach ($sales as $sale):
+                $totalAmount = (float)($sale['total_amount'] ?? 0);
+                $paidAmount = (float)($sale['paid_amount'] ?? 0);
+                $remainingBalance = $totalAmount - $paidAmount;
+            ?>
             <tr>
                 <td>VE-<?php echo htmlspecialchars($sale['id']); ?></td>
-                <td><?php echo htmlspecialchars($sale['sale_date']); ?></td>
+                <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['sale_date']))); ?></td>
                 <td><?php echo htmlspecialchars($sale['client_display_name']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($sale['total_amount'], 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($totalAmount, 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right; color: green;"><?php echo htmlspecialchars(number_format($paidAmount, 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right; font-weight: bold; color: <?php echo ($remainingBalance > 0.009) ? 'red' : 'green'; ?>;">
+                    <?php echo htmlspecialchars(number_format($remainingBalance, 2, ',', ' ')); ?> €
+                </td>
                 <td><?php echo htmlspecialchars(ucfirst($sale['payment_type'])); ?></td>
                 <td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td>
-                <td><?php echo htmlspecialchars($sale['due_date'] ?? 'N/A'); ?></td>
+                <td><?php echo $sale['due_date'] ? htmlspecialchars(date('d/m/Y', strtotime($sale['due_date']))) : 'N/A'; ?></td>
                 <td>
-                    <a href="index.php?url=sale/show/<?php echo $sale['id']; ?>" class="button-info">Voir</a>
-                    <?php if ($sale['payment_type'] === 'deferred' && $sale['payment_status'] !== 'paid' && $sale['payment_status'] !== 'cancelled'): ?>
-                        <a href="index.php?url=sale/record_payment/<?php echo $sale['id']; ?>" class="button" style="background-color: #ffc107; color: black;">Enregistrer le paiement</a>
+                    <a href="index.php?url=sale/show/<?php echo $sale['id']; ?>" class="button-info btn-sm">Voir</a>
+                    <?php if ($sale['payment_type'] === 'deferred' && !in_array($sale['payment_status'], ['paid', 'cancelled', 'refunded'])): ?>
+                        <a href="index.php?url=sale/manage_payments/<?php echo $sale['id']; ?>" class="button btn-sm" style="background-color: #ffc107; color: black;">Paiements</a>
                     <?php endif; ?>
-                     <?php // Delete only if not paid or if it's 'cancelled' or 'pending'
-                        if (!in_array($sale['payment_status'], ['paid', 'partially_paid']) || in_array($sale['payment_status'], ['cancelled', 'pending'])): ?>
+                     <?php // Delete only if not paid or if it's 'cancelled' or 'pending' (adjust logic as needed)
+                        if (in_array($sale['payment_status'], ['pending', 'cancelled'])): ?>
                         <form action="index.php?url=sale/destroy/<?php echo $sale['id']; ?>" method="POST" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette vente ? Cela annulera les quantités en stock.');">
                             <button type="submit" class="button-danger">Supprimer</button>
                         </form>

@@ -16,8 +16,9 @@ if (isset($_GET['status']) && $_GET['status'] == 'created_success') {
 ?>
 
 <h2>Livraison #LIV-<?php echo htmlspecialchars($delivery['id']); ?></h2>
-<div style="margin-bottom: 20px;">
+<div style="margin-bottom: 20px;" class="action-buttons no-print">
     <a href="index.php?url=delivery/index" class="button-info">Retour à la liste</a>
+    <a href="index.php?url=delivery/print_delivery_note/<?php echo $delivery['id']; ?>" class="button" target="_blank" style="background-color: #6c757d; color:white;">Imprimer le BL</a>
     <?php if ($delivery['purchase_order_id']): ?>
         <a href="index.php?url=purchaseorder/show/<?php echo $delivery['purchase_order_id']; ?>" class="button">Voir le BC lié</a>
     <?php endif; ?>
@@ -49,9 +50,9 @@ if (isset($_GET['status']) && $_GET['status'] == 'created_success') {
                 <th>ID Produit</th>
                 <th>Nom du produit</th>
                 <th>Quantité reçue</th>
-                <th>Unité de mesure</th>
+                <th>Unité (Reçue)</th>
                 <th>Depuis l'article de BC ID</th>
-                <th>Commandé à l'origine (sur BC)</th>
+                <th>Commandé à l'origine (Qté et Unité du BC)</th>
             </tr>
         </thead>
         <tbody>
@@ -60,9 +61,20 @@ if (isset($_GET['status']) && $_GET['status'] == 'created_success') {
                 <td><?php echo htmlspecialchars($item['product_id']); ?></td>
                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                 <td style="text-align: right;"><?php echo htmlspecialchars($item['quantity_received']); ?></td>
-                <td><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                <td><?php echo htmlspecialchars($item['unit_name'] . ' (' . $item['unit_symbol'] . ')'); ?></td>
                 <td><?php echo htmlspecialchars($item['purchase_order_item_id'] ?? 'N/A (Direct)'); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars($item['original_quantity_ordered'] ?? 'N/A'); ?></td>
+                <td style="text-align: right;">
+                    <?php
+                    if (isset($item['original_quantity_ordered'])) {
+                        echo htmlspecialchars($item['original_quantity_ordered']);
+                        if (isset($item['po_unit_name'])) {
+                            echo ' ' . htmlspecialchars($item['po_unit_name'] . ($item['po_unit_symbol'] ? ' ('.$item['po_unit_symbol'].')' : ''));
+                        }
+                    } else {
+                        echo 'N/A';
+                    }
+                    ?>
+                </td>
             </tr>
             <?php endforeach; ?>
         </tbody>

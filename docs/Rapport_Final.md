@@ -2,26 +2,9 @@
 
 ## 1. Introduction
 
-Ce document détaille le projet ERPNextClone, un système simplifié de planification des ressources d'entreprise (ERP) développé en PHP natif avec une architecture MVC. L'objectif principal était de créer une application web modulaire permettant de gérer des fonctionnalités clés d'un ERP, telles que la gestion des produits, des tiers (fournisseurs, clients), les cycles d'approvisionnement et de vente, la gestion des stocks, et la génération de rapports.
+Ce document détaille le projet ERPNextClone, un système simplifié de planification des ressources d'entreprise (ERP) développé en PHP natif avec une architecture MVC. L'objectif principal était de créer une application web modulaire permettant de gérer des fonctionnalités clés d'un ERP, telles que la gestion des produits (avec unités de mesure multiples et catégories), des tiers (fournisseurs, clients, avec catégories), les cycles d'approvisionnement et de vente (incluant la gestion des unités par ligne), la gestion des stocks (traçant les unités d'origine et de base), le fractionnement de produits, la génération de rapports et l'impression de documents clés.
 
-Les fonctionnalités clés implémentées incluent :
-*   Gestion des Produits : Création, modification, suppression et listage des produits, y compris la gestion des prix d'achat et de vente.
-*   Gestion des Tiers : Modules distincts pour les Fournisseurs et les Clients, avec CRUD pour chacun.
-*   Cycle d'Approvisionnement :
-    *   Commandes Fournisseurs : Création et suivi des commandes.
-    *   Réceptions de Livraisons : Enregistrement des produits reçus, mise à jour automatique du stock et du statut des commandes fournisseurs.
-    *   Factures Fournisseurs : Enregistrement et suivi des factures des fournisseurs.
-*   Cycle de Vente :
-    *   Ventes : Enregistrement des ventes (paiement immédiat ou différé), gestion des clients (enregistrés ou occasionnels), décrémentation automatique du stock.
-    *   Suivi des Paiements : Enregistrement des paiements pour les ventes différées.
-*   Gestion des Stocks :
-    *   Suivi précis des mouvements de stock (entrées, sorties, ajustements).
-    *   Maintien d'un cache de la quantité en stock au niveau du produit, synchronisé avec les mouvements.
-    *   Historique des mouvements par produit et possibilité d'ajustements manuels.
-*   Rapports : Génération de rapports pour l'état du stock, les entrées/sorties de stock, les ventes et les achats, avec options de filtrage.
-*   Interface Utilisateur : Une interface web responsive avec une navigation claire et des formulaires pour interagir avec le système.
-
-Le projet met l'accent sur une structure de code claire, la séparation des préoccupations (MVC), et l'utilisation de PHP natif sans frameworks externes majeurs pour la logique backend.
+Le projet met l'accent sur une structure de code claire, la séparation des préoccupations (MVC), et l'utilisation de PHP natif (PHP 8.x), PostgreSQL pour la base de données, et HTML/CSS/JavaScript natif pour l'interface utilisateur.
 
 ## 2. Architecture Logicielle
 
@@ -29,220 +12,192 @@ Le projet met l'accent sur une structure de code claire, la séparation des pré
 
 Le projet est structuré selon le motif de conception Modèle-Vue-Contrôleur (MVC) :
 
-*   **Modèles (`app/models/`) :** Représentent la logique métier et l'interaction avec la base de données. Chaque entité principale (Produit, Client, Vente, etc.) possède son propre modèle qui hérite d'une classe `Model` de base. Ils sont responsables de la validation des données, de l'exécution des requêtes SQL (via la classe `Database`), et du retour des données au contrôleur.
-*   **Vues (`app/views/`) :** Sont responsables de la présentation des données à l'utilisateur. Elles sont principalement composées de fichiers PHP contenant du HTML et des boucles/conditions PHP simples pour afficher les données passées par les contrôleurs. Un système de layout principal (`layouts/main.php`) est utilisé pour maintenir une structure de page cohérente.
-*   **Contrôleurs (`app/controllers/`) :** Agissent comme intermédiaires entre les Modèles et les Vues. Ils reçoivent les requêtes de l'utilisateur (via le routeur), interagissent avec les modèles pour récupérer ou modifier des données, puis sélectionnent et passent les données à la vue appropriée pour l'affichage. Chaque module fonctionnel a généralement son propre contrôleur (ex: `ProductsController`, `SaleController`).
+*   **Modèles (`app/models/`) :** Représentent la logique métier et l'interaction avec la base de données. Chaque entité principale (Produit, Client, Fournisseur, Vente, Commande Fournisseur, Livraison, Catégories, Unités, etc.) possède son propre modèle. Ils héritent d'une classe `Model` de base et sont responsables de la validation des données, de l'exécution des requêtes SQL (via la classe `Database`), et du retour des données au contrôleur.
+*   **Vues (`app/views/`) :** Sont responsables de la présentation des données à l'utilisateur. Elles sont composées de fichiers PHP contenant du HTML et des boucles/conditions PHP simples pour afficher les données passées par les contrôleurs. Un système de layout principal (`layouts/main.php`) est utilisé pour maintenir une structure de page cohérente. Des vues spécifiques pour l'impression (`print_*.php`) sont utilisées sans le layout principal.
+*   **Contrôleurs (`app/controllers/`) :** Agissent comme intermédiaires entre les Modèles et les Vues. Ils reçoivent les requêtes de l'utilisateur (via le routeur), interagissent avec les modèles pour récupérer ou modifier des données, puis sélectionnent et passent les données à la vue appropriée pour l'affichage. Chaque module fonctionnel possède son propre contrôleur (ex: `ProductsController`, `SaleController`, `ProductCategoriesController`, `ReportController`, `FractioningController`).
 
 ### 2.2. Composants `core/`
 
 Le dossier `core/` contient les classes fondamentales de l'application :
 
-*   **`Database.php` :** Une classe Singleton responsable de la connexion à la base de données (PostgreSQL via PDO) et de l'exécution des requêtes SQL (SELECT, INSERT, UPDATE, DELETE). Elle est utilisée par tous les modèles pour interagir avec la base de données.
-*   **`Controller.php` :** Une classe de base pour tous les contrôleurs de l'application. Elle fournit des méthodes utilitaires communes, comme `loadModel()` pour instancier un modèle spécifique et `renderView()` pour charger une vue et lui transmettre des données (y compris l'intégration dans le layout principal).
-*   **`Model.php` :** Une classe de base pour tous les modèles. Elle reçoit une instance de la classe `Database` dans son constructeur, la rendant disponible à tous les modèles enfants pour leurs opérations sur la base de données.
+*   **`Database.php` :** Une classe Singleton responsable de la connexion à la base de données (PostgreSQL via PDO) et de l'exécution des requêtes SQL.
+*   **`Controller.php` :** Classe de base pour tous les contrôleurs, fournissant des méthodes utilitaires comme `loadModel()` et `renderView()`, ainsi que la nouvelle méthode `renderPrintView()` pour les sorties d'impression.
+*   **`Model.php` :** Classe de base pour tous les modèles, fournissant l'instance de `Database`.
 
 ### 2.3. Structure des Dossiers
 
-L'arborescence du projet est organisée comme suit :
-
+L'arborescence du projet est organisée comme suit (extrait pertinent) :
 ```
 /
 |-- app/
-|   |-- controllers/  // Contient tous les contrôleurs
-|   |-- models/       // Contient tous les modèles de données
-|   |-- views/        // Contient toutes les vues, organisées par module
-|       |-- layouts/      // Layouts HTML principaux (ex: main.php)
-|       |-- products/
-|       |-- suppliers/
-|       |-- clients/
-|       |-- procurement/
-|           |-- purchase_orders/
-|           |-- deliveries/
-|           |-- supplier_invoices/
-|       |-- sales/
-|       |-- stock/
+|   |-- controllers/  // (Products, Sales, Purchaseorder, Delivery, ClientCategories, SupplierCategories, Report, Fractioning, etc.)
+|   |-- models/       // (Product, Sale, PurchaseOrder, Delivery, ClientCategory, SupplierCategory, Unit, StockMovement, etc.)
+|   |-- views/        // (Organisé par module, incluant les nouvelles vues pour catégories, fractionnement, rapports, et impression)
+|       |-- layouts/      // main.php
+|       |-- fractioning/
+|       |-- product_categories/
+|       |-- client_categories/
+|       |-- supplier_categories/
 |       |-- reports/
-|       |-- errors/       // Vues pour les erreurs (404, 403, etc.)
-|-- core/               // Classes de base (Database, Controller, Model)
-|-- config/             // Fichiers de configuration
-|   |-- database.php    // Configuration de la base de données
-|-- public/             // Dossier racine web, accessible publiquement
-|   |-- css/            // Fichiers CSS
+|       |-- sales/ (avec print_invoice.php, print_payment_receipt.php)
+|       |-- procurement/
+|           |-- purchase_orders/ (avec print_po.php)
+|           |-- deliveries/ (avec print_delivery_note.php)
+|-- core/
+|-- config/
+|   |-- database.php
+|-- public/
+|   |-- css/
 |       |-- style.css
-|   |-- js/             // Fichiers JavaScript (si nécessaire)
-|   |-- images/         // Images
-|   |-- index.php       // Point d'entrée unique de l'application (Routeur)
-|-- docs/               // Documentation du projet
-|   |-- database_schema.sql // Script SQL complet de la base de données
-|   |-- sequence_diagrams/  // Diagrammes de séquence (textuels)
-|   |-- Rapport_Final.md    // Ce rapport
-|-- .htaccess           // (Optionnel, pour la réécriture d'URL avec Apache)
+|       |-- print_style.css (Nouveau)
+|   |-- js/
+|   |-- index.php
+|-- docs/
+|   |-- database_schema.sql
+|   |-- sequence_diagrams/  (Mis à jour et nouveaux ajoutés)
+|   |-- Rapport_Final.md
 ```
 
 ## 3. Schéma de la Base de Données
 
-Le schéma complet de la base de données PostgreSQL est défini dans le fichier `docs/database_schema.sql`.
+Le schéma complet et à jour est dans `docs/database_schema.sql`. Les ajouts et modifications majeurs incluent :
 
-Principales tables et relations :
+*   **Nouvelles Tables :**
+    *   `units` : Stocke les unités de mesure (ex: Pièce, Kg, Carton de 10) avec nom et symbole.
+    *   `product_units` : Table de liaison associant les produits à plusieurs unités, avec un facteur de conversion vers l'unité de base du produit.
+    *   `product_categories` : Catégories pour les produits.
+    *   `client_categories` : Catégories pour les clients.
+    *   `supplier_categories` : Catégories pour les fournisseurs.
+    *   `sale_payments` : Enregistre les paiements multiples pour les ventes à paiement différé.
+*   **Modifications des Tables Existantes :**
+    *   `products` : Suppression de `unit_of_measure` (texte) et `parent_id`. Ajout de `base_unit_id` (FK vers `units`) et `category_id` (FK vers `product_categories`). `quantity_in_stock` est toujours en unité de base.
+    *   `clients` : Ajout de `client_category_id` (FK vers `client_categories`).
+    *   `suppliers` : Ajout de `supplier_category_id` (FK vers `supplier_categories`).
+    *   `purchase_order_items` : Ajout de `unit_id` (FK vers `units`) pour spécifier l'unité de la ligne de commande.
+    *   `delivery_items` : Ajout de `unit_id` (FK vers `units`) pour l'unité de réception.
+    *   `sale_items` : Ajout de `unit_id` (FK vers `units`) pour l'unité de vente.
+    *   `sales` : Ajout de `discount_amount`, `paid_amount`, `amount_tendered`, `change_due`. `total_amount` représente maintenant le montant net après réduction.
+    *   `stock_movements` : Ajout de `original_unit_id` (FK vers `units`) et `original_quantity` pour tracer la quantité et l'unité de la transaction d'origine. La colonne `quantity` stocke toujours la quantité convertie dans l'unité de base du produit.
 
-*   **`products` :** Stocke les informations sur les produits (nom, description, prix d'achat/vente, unité de mesure, quantité en stock (cache)). `parent_id` permet une structure hiérarchique simple.
-*   **`suppliers` :** Informations sur les fournisseurs.
-*   **`clients` :** Informations sur les clients, avec un type (`connu`, `occasionnel`).
-*   **`purchase_orders` :** En-têtes des commandes fournisseurs (lie `suppliers`).
-*   **`purchase_order_items` :** Lignes des commandes fournisseurs (lie `purchase_orders` et `products`).
-*   **`deliveries` :** En-têtes des réceptions de livraison (peut lier `purchase_orders` et/ou `suppliers`).
-*   **`delivery_items` :** Lignes des réceptions (lie `deliveries`, `products`, et optionnellement `purchase_order_items`).
-*   **`supplier_invoices` :** Factures des fournisseurs (lie `suppliers`, et optionnellement `deliveries` ou `purchase_orders`).
-*   **`sales` :** En-têtes des ventes (peut lier `clients` ou utiliser `client_name_occasional`).
-*   **`sale_items` :** Lignes des ventes (lie `sales` et `products`).
-*   **`stock_movements` :** Journal de tous les mouvements de stock (lie `products`, et optionnellement le document source via `related_document_id` et `related_document_type`).
+Des triggers `update_updated_at_column` sont appliqués aux nouvelles tables de catégories et à `sale_payments`. Les contraintes et index ont été mis à jour en conséquence.
 
-Des triggers PostgreSQL sont utilisés pour mettre à jour automatiquement les champs `updated_at` sur les tables concernées. Des contraintes de clé étrangère assurent l'intégrité référentielle (ex: `ON DELETE RESTRICT`, `ON DELETE SET NULL`, `ON DELETE CASCADE` selon le cas). Des index sont créés sur les clés étrangères et les champs fréquemment utilisés dans les recherches pour améliorer les performances.
+## 4. Description des Modules Fonctionnels (Mise à Jour)
 
-## 4. Description des Modules Fonctionnels
+### 4.1. Module Produits (`ProductsController`, `ProductModel`)
+*   **Fonctionnalités :** CRUD complet. Gestion des catégories de produits via `ProductCategoriesController`.
+*   **Unités de Mesure :** Chaque produit a une `base_unit_id` obligatoire. Des unités alternatives peuvent être associées via `product_units` avec un `conversion_factor_to_base_unit`. L'interface de création/modification de produit permet de gérer ces associations.
+*   **Fractionnement (`FractioningController`, `ProductModel`, `StockMovementModel`) :**
+    *   Interface dédiée pour convertir une quantité d'un produit d'une unité source vers une unité cible (pour le même produit).
+    *   Valide le stock disponible dans l'unité source.
+    *   Calcule la quantité convertie dans l'unité cible.
+    *   Génère deux mouvements de stock : `split_out` pour le produit source et `split_in` pour le produit cible (qui est le même produit mais représente la "nouvelle forme"). Les mouvements tracent les unités et quantités d'origine et de base.
+    *   Les opérations sont atomiques (transaction PDO).
 
-### 4.1. Module Produits (`ProductsController`, `Product`)
-*   **Fonctionnalités :** CRUD complet pour les produits. Gestion du nom, description, catégorie parente, unité de mesure, prix d'achat et de vente. Le stock initial est enregistré lors de la création.
-*   **Modèles :** `Product.php`
-*   **Contrôleurs :** `ProductsController.php`
-*   **Vues :** `app/views/products/` (index, show, create, edit)
-*   **Logique métier :** Le stock (`quantity_in_stock`) est un cache mis à jour via la méthode `Product->updateStock()`, qui enregistre également un `StockMovement`. La modification directe du stock via le formulaire d'édition du produit est empêchée ; elle doit passer par des ajustements de stock dédiés.
+### 4.2. Module Fournisseurs (`SuppliersController`, `SupplierModel`)
+*   **Fonctionnalités :** CRUD complet. Gestion des catégories de fournisseurs via `SupplierCategoriesController`.
+*   Les formulaires et vues de fournisseurs permettent d'assigner et d'afficher une catégorie.
 
-### 4.2. Module Fournisseurs (`SuppliersController`, `Supplier`)
-*   **Fonctionnalités :** CRUD complet pour les fournisseurs (nom, contact, email, téléphone, adresse).
-*   **Modèles :** `Supplier.php`
-*   **Contrôleurs :** `SuppliersController.php`
-*   **Vues :** `app/views/suppliers/`
-*   **Logique métier :** Gestion standard des informations des fournisseurs. L'email doit être unique.
-
-### 4.3. Module Clients (`ClientsController`, `Client`)
-*   **Fonctionnalités :** CRUD complet pour les clients (nom, type de client, email, téléphone, adresse).
-*   **Modèles :** `Client.php`
-*   **Contrôleurs :** `ClientsController.php`
-*   **Vues :** `app/views/clients/`
-*   **Logique métier :** Distinction entre clients "connus" (enregistrés) et "occasionnels" (nom saisi directement lors d'une vente). L'email doit être unique si fourni.
+### 4.3. Module Clients (`ClientsController`, `ClientModel`)
+*   **Fonctionnalités :** CRUD complet. Gestion des catégories de clients via `ClientCategoriesController`.
+*   Les formulaires et vues de clients permettent d'assigner et d'afficher une catégorie.
 
 ### 4.4. Module Approvisionnement
-Ce module est divisé en Commandes Fournisseurs, Réceptions, et Factures Fournisseurs.
-*   **Commandes Fournisseurs (`PurchaseorderController`, `PurchaseOrder`, `PurchaseOrderItem`)**
-    *   **Fonctionnalités :** Création, affichage, modification (limitée), et annulation des commandes fournisseurs. Ajout dynamique de lignes de produits aux commandes.
-    *   **Vues :** `app/views/procurement/purchase_orders/`
-    *   **Logique métier :** Calcul automatique du montant total de la commande. Statuts de commande (`pending`, `partially_received`, `received`, `cancelled`).
-*   **Réceptions de Livraison (`DeliveryController`, `Delivery`, `DeliveryItem`)**
-    *   **Fonctionnalités :** Enregistrement des livraisons, qu'elles soient liées à une commande fournisseur ou directes/gratuites. Mise à jour du stock des produits lors de la réception.
-    *   **Vues :** `app/views/procurement/deliveries/`
-    *   **Logique métier :** La validation d'une réception met à jour `products.quantity_in_stock` et crée des mouvements de stock (`in_delivery`). Le statut de la commande fournisseur associée est mis à jour (`partially_received`, `received`). Gestion des réceptions partielles.
-*   **Factures Fournisseurs (`SupplierinvoiceController`, `SupplierInvoice`)**
-    *   **Fonctionnalités :** Enregistrement et suivi des factures fournisseurs. Liaison possible à des livraisons ou des commandes. Gestion des statuts de paiement (`unpaid`, `paid`, `partially_paid`).
-    *   **Vues :** `app/views/procurement/supplier_invoices/`
-    *   **Logique métier :** Principalement le suivi des échéances et des paiements. Une alerte peut être suggérée si on tente de facturer une livraison "gratuite".
+*   **Commandes Fournisseurs (`PurchaseorderController`, `PurchaseOrderModel`) :**
+    *   Les lignes de commande incluent maintenant une sélection d'unité (`unit_id`) spécifique à cette ligne, choisie parmi les unités configurées pour le produit. Le JavaScript des formulaires peuple dynamiquement ce sélecteur.
+    *   Validation serveur pour s'assurer que l'unité est valide pour le produit.
+*   **Réceptions de Livraison (`DeliveryController`, `DeliveryModel`) :**
+    *   Les lignes de réception incluent `unit_id`. Si la livraison provient d'une commande, l'unité est généralement celle de la commande. Pour les livraisons directes, l'unité est sélectionnable.
+    *   La mise à jour du stock (`ProductModel->updateStock()`) est appelée avec la quantité reçue et son unité. Le modèle `ProductModel` gère la conversion en unité de base avant d'affecter `products.quantity_in_stock` et `StockMovementModel` enregistre le mouvement avec les détails d'unité d'origine et de base.
+*   **Factures Fournisseurs :** Pas de modifications majeures dans ce cycle, mais la structure est en place.
 
-### 4.5. Module Ventes (`SaleController`, `Sale`, `SaleItem`)
-*   **Fonctionnalités :** Enregistrement des ventes avec paiement immédiat ou différé. Sélection de clients enregistrés ou saisie de clients occasionnels. Ajout dynamique de lignes de produits. Décrémentation du stock lors de la vente. Enregistrement des paiements pour les ventes différées.
-*   **Vues :** `app/views/sales/` (index, show, create_immediate, create_deferred, record_payment)
-*   **Logique métier :** Vérification de la disponibilité du stock avant de valider une vente. Mise à jour de `products.quantity_in_stock` et création de mouvements de stock (`out_sale`). Gestion des statuts de paiement.
+### 4.5. Module Ventes (`SaleController`, `SaleModel`, `SalePaymentModel`)
+*   **Gestion des Ventes :**
+    *   Les lignes de vente incluent `unit_id`, sélectionnée dynamiquement dans le formulaire parmi les unités configurées pour le produit.
+    *   Validation serveur de l'unité et du stock disponible (converti en unité de base).
+    *   `ProductModel->updateStock()` est appelé avec la quantité vendue (négative) et son unité de transaction.
+*   **Paiements Immédiats :**
+    *   Gestion de `discount_amount` (réduction).
+    *   Calcul et enregistrement de `amount_tendered` (montant versé) et `change_due` (monnaie à rendre).
+    *   Le `total_amount` de la vente est net après réduction. `paid_amount` est initialisé.
+*   **Paiements Différés et Multiples :**
+    *   Nouvelle table `sale_payments` pour enregistrer chaque versement.
+    *   Interface `sales/manage_payments.php` pour ajouter des paiements à une vente différée et voir l'historique.
+    *   Après chaque paiement, `SaleModel->updateSalePaymentStatus()` met à jour `sales.paid_amount` et `sales.payment_status` ('pending', 'partially_paid', 'paid').
 
-### 4.6. Module Gestion des Stocks (`StockController`, `StockMovement`, `Product`)
-*   **Fonctionnalités :** Historique des mouvements de stock par produit (avec filtres de date). Vue d'ensemble des stocks actuels. Création d'ajustements manuels de stock (entrées ou sorties justifiées).
-*   **Modèles :** `StockMovement.php` est central. `Product.php` contient la méthode `updateStock()` qui met à jour le cache `quantity_in_stock` ET crée un `StockMovement`.
-*   **Contrôleurs :** `StockController.php`
-*   **Vues :** `app/views/stock/` (index, history, create_adjustment)
-*   **Logique métier :** Tous les changements de stock (livraisons, ventes, ajustements) génèrent des enregistrements immuables dans `stock_movements`. `products.quantity_in_stock` sert de cache pour des lectures rapides. La page d'historique permet de comparer le stock cache et le stock calculé à partir des mouvements pour vérifier la cohérence.
+### 4.6. Module Gestion des Stocks (`StockController`, `StockMovementModel`, `ProductModel`)
+*   **Mouvements de Stock :** La table `stock_movements` stocke maintenant `original_unit_id` et `original_quantity` en plus de `quantity` (qui est toujours en unité de base du produit). Cela permet une traçabilité complète.
+*   **`ProductModel->updateStock()` :** Refactorisée pour accepter la quantité et l'unité de la transaction, effectuer la conversion en unité de base pour `products.quantity_in_stock`, et instruire `StockMovementModel` d'enregistrer le mouvement avec tous les détails d'unité.
+*   Les types de mouvement `split_in` et `split_out` ont été ajoutés et sont utilisés par la fonctionnalité de fractionnement. `delivery_reversal` et `sale_reversal` sont également prévus.
 
 ### 4.7. Module Rapports (`ReportController`)
-*   **Fonctionnalités :** Fournit une interface pour accéder à divers rapports : état du stock actuel (avec filtre de stock bas), entrées de stock (par période/produit), sorties de stock (par période/produit), rapport des ventes (par période/client/statut paiement), rapport des achats (par période/fournisseur/statut PO).
-*   **Modèles :** Utilise les modèles existants et leurs nouvelles méthodes de filtrage (ex: `StockMovement->getMovementsByTypeAndDateRange()`, `Sale->getSalesByDateRangeAndFilters()`, etc.).
-*   **Vues :** `app/views/reports/` (index, et une vue par rapport).
-*   **Logique métier :** Agrégation et filtrage de données pour fournir des informations utiles à la décision.
+*   **État du Stock Actuel (`current_stock` renommé en `stock_status_report` implicitement) :**
+    *   Affiche `quantity_in_stock` (en unité de base).
+    *   Pour chaque produit, affiche également le stock converti dans toutes ses autres unités configurées (en utilisant les facteurs de `product_units`).
+*   **Mouvements de Stock Détaillés (`stock_movements_report`) :**
+    *   Nouveau rapport listant tous les mouvements de stock avec options de filtrage (période, produit, type de mouvement).
+    *   Affiche les quantités en unité d'origine (avec symbole) et en unité de base du produit (avec symbole).
+    *   Affiche les informations du document lié et les notes.
+*   **Rapport de Caisse Journalier (`daily_cash_flow`) :**
+    *   Nouveau rapport résumant les encaissements par jour sur une période.
+    *   Combine les ventes immédiates payées (`sales.total_amount`) et les paiements reçus pour les ventes différées (`sale_payments.amount_paid`).
+    *   Filtres par date.
+
+### 4.8. Impression de Documents
+*   **Fonctionnalité :** Ajout de la capacité d'imprimer des documents formatés.
+*   **Méthode `renderPrintView` dans `core/Controller.php` :** Permet de rendre des vues sans le layout principal.
+*   **Vues d'Impression dédiées :**
+    *   `sales/print_invoice.php` (Facture de vente)
+    *   `sales/print_payment_receipt.php` (Reçu de paiement individuel)
+    *   `procurement/purchase_orders/print_po.php` (Bon de commande)
+    *   `procurement/deliveries/print_delivery_note.php` (Bon de livraison)
+*   **CSS d'Impression (`public/css/print_style.css`) :** Fichier CSS de base pour optimiser l'affichage à l'impression.
+*   **Liens d'Impression :** Ajoutés sur les pages `show` des ventes, commandes fournisseurs, livraisons, et sur la page de gestion des paiements.
 
 ## 5. Interface Utilisateur (UI/UX)
 
-L'interface utilisateur a été développée avec HTML, CSS natif, et un peu de JavaScript natif pour les fonctionnalités dynamiques (comme l'ajout de lignes dans les formulaires).
-
-*   **CSS (`public/css/style.css`) :** Un fichier CSS central définit l'apparence globale. Il inclut :
-    *   Une réinitialisation de base et des styles pour le corps de la page.
-    *   Une palette de couleurs (principalement des nuances de bleu pour les actions primaires, des gris pour le texte et l'arrière-plan, et des couleurs sémantiques pour les alertes et statuts).
-    *   Des polices de caractères lisibles (`Segoe UI` ou alternatives sans-serif).
-    *   Des styles unifiés pour les titres, paragraphes, listes, liens, boutons, champs de formulaire, et tableaux.
-    *   L'utilisation de Flexbox pour la mise en page principale (en-tête, contenu, pied de page) et pour certains alignements internes.
-    *   Des media queries pour une responsivité de base sur les écrans de bureau, tablettes et mobiles. Les tableaux larges deviennent déroulants horizontalement sur petits écrans.
-*   **Layout Principal (`app/views/layouts/main.php`) :** Utilise une structure HTML sémantique (`<header>`, `<nav>`, `<main>`, `<footer>`). La navigation principale est responsive et utilise des menus déroulants pour l'accès aux sous-modules.
-*   **Améliorations des Vues :**
-    *   **Formulaires :** Les groupes de champs sont organisés avec `<fieldset>` et `<legend>`. Les labels sont alignés. Les boutons sont stylisés de manière cohérente. Les messages d'erreur de validation sont affichés clairement.
-    *   **Tableaux :** Amélioration de la lisibilité (padding, bordures). Les tableaux sont responsives grâce à un conteneur permettant le défilement horizontal.
-    *   **JavaScript :** Les scripts pour l'ajout dynamique de lignes dans les formulaires de commande/vente/livraison ont été conservés et fonctionnent avec la nouvelle interface. Des confirmations (`window.confirm`) ont été ajoutées pour les actions de suppression critiques.
-*   **Accessibilité (Principes) :** Bien que non exhaustive, une attention a été portée au contraste des couleurs et à la possibilité de navigation au clavier pour les éléments interactifs.
-*   **Convivialité :** Effort pour maintenir une terminologie cohérente. Les messages de statut (succès, erreur, avertissement) sont stylisés pour être bien visibles.
+*   **CSS :** Les styles de base ont été maintenus. Un fichier `print_style.css` a été ajouté.
+*   **JavaScript :** Améliorations significatives pour la gestion dynamique des unités dans les formulaires de commande, livraison et vente, y compris la population des `select` d'unités basée sur le produit choisi et l'affichage du stock converti. Les calculs de totaux dans les ventes immédiates (incluant réduction, montant versé, monnaie) sont également gérés en JS.
+*   **Francisation :** L'interface est majoritairement en français.
+*   **Convivialité :** Les formulaires pour les opérations impliquant des unités ont été adaptés. Les rapports fournissent des informations plus riches.
 
 ## 6. Instructions d'Installation et de Configuration
-
-1.  **Prérequis :**
-    *   Serveur web (Apache, Nginx) avec support PHP (version 7.4+ recommandée).
-    *   PostgreSQL (version 10+ recommandée).
-    *   Accès `php-pdo` et `php-pgsql` activé dans la configuration PHP.
-
-2.  **Installation :**
-    *   Cloner ou télécharger les fichiers du projet dans le répertoire racine de votre serveur web (ex: `htdocs`, `www`).
-    *   S'assurer que le dossier `public` est le DocumentRoot de votre configuration de serveur web, ou que les requêtes sont redirigées vers `public/index.php`.
-
-3.  **Configuration de la Base de Données :**
-    *   Créez une base de données PostgreSQL (ex: `erpnextclone_db`).
-    *   Ouvrez le fichier `config/database.php`.
-    *   Modifiez les valeurs suivantes pour correspondre à votre configuration PostgreSQL :
-        ```php
-        return [
-            'driver' => 'pgsql',
-            'host' => 'localhost',       // Ou l'IP de votre serveur DB
-            'port' => '5432',            // Port PostgreSQL
-            'database' => 'mydatabase',  // Nom de votre base de données
-            'username' => 'user',        // Utilisateur PostgreSQL
-            'password' => 'password',    // Mot de passe
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-        ];
-        ```
-    *   Exécutez le script SQL `docs/database_schema.sql` dans votre base de données pour créer toutes les tables, triggers et index nécessaires. Vous pouvez utiliser un outil comme pgAdmin ou la commande `psql`.
-
-4.  **Permissions (si nécessaire) :**
-    *   Assurez-vous que le serveur web a les permissions d'écriture pour les dossiers qui pourraient en avoir besoin (aucun pour l'instant dans ce projet, mais pertinent pour des fonctionnalités futures comme l'upload de fichiers).
-
-5.  **Accès à l'application :**
-    *   Ouvrez votre navigateur web et accédez à l'URL configurée pour le projet.
+(Contenu existant à vérifier, notamment si de nouvelles dépendances PHP ont été implicitement ajoutées, ex: `php-intl` pour le formatage de nombres si utilisé, mais ici c'est `number_format` natif).
+La section existante reste globalement valide. PHP 7.4+ et PostgreSQL sont les prérequis majeurs.
 
 ## 7. Conclusion
 
-Le projet ERPNextClone a réussi à mettre en place une base solide pour un système ERP simplifié, couvrant les modules essentiels de gestion de produits, tiers, approvisionnement, ventes, stock et rapports. L'architecture MVC et les composants `core` fournissent une structure organisée pour le développement et la maintenance.
+Le projet ERPNextClone a été considérablement enrichi avec des fonctionnalités avancées de gestion des unités de mesure, de catégorisation, de suivi des paiements, de fractionnement de produits et d'impression. Ces ajouts rendent le système plus flexible et plus proche des besoins réels d'une gestion d'entreprise.
 
-**Fonctionnalités Réalisées :**
-*   CRUD complet pour les entités de base.
-*   Flux de travail pour les achats (PO -> Livraison -> Facture Fournisseur) et les ventes (Vente -> Paiement).
-*   Gestion des stocks avec traçabilité des mouvements et mise à jour en temps réel du cache de quantité.
-*   Un ensemble de rapports de base pour l'analyse des données.
-*   Une interface utilisateur responsive et améliorée.
+**Fonctionnalités Réalisées (par rapport à la description initiale et aux ajouts) :**
+*   CRUD pour produits, clients, fournisseurs, avec catégories respectives.
+*   Gestion des unités de mesure multiples pour les produits, avec conversion.
+*   Cycle d'approvisionnement complet (BC, Livraison, Facture Fournisseur) avec gestion des unités par ligne.
+*   Cycle de vente complet (Vente immédiate/différée) avec gestion des unités par ligne, réductions, et suivi des paiements multiples pour les ventes différées.
+*   Gestion des stocks précise, traçant les mouvements en unité de base et en unité d'origine.
+*   Fonctionnalité de fractionnement de produits.
+*   Rapports améliorés : état des stocks avec conversions d'unités, mouvements de stock détaillés avec unités, rapport de caisse journalier.
+*   Impression des documents essentiels (Facture vente, Reçu paiement, Bon de commande, Bon de livraison).
 
-**Pistes d'Améliorations Futures Possibles :**
+**Pistes d'Améliorations Futures Possibles (Mise à Jour) :**
 
-*   **Authentification et Gestion des Utilisateurs :** Implémenter un système de connexion avec rôles et permissions.
-*   **Tableau de Bord :** Créer une page d'accueil (`#`) avec des indicateurs clés et des raccourcis.
-*   **Gestion des Catégories de Produits :** Permettre de classer les produits par catégories.
-*   **Fractionnement et Assemblage de Produits :**
-    *   **Fractionnement :** Compléter la fonctionnalité de fractionnement des produits. Bien que la structure `parent_id` existe et que les types de mouvements de stock `split_in`/`split_out` soient prévus, il manque une interface utilisateur dédiée (par exemple, une action "Fractionner ce produit" sur la page d'un produit) et la logique applicative dans le `ProductsController` ou un service dédié pour :
-        *   Demander à l'utilisateur le produit parent à fractionner et les produits enfants résultants avec leurs quantités.
-        *   Valider que les produits enfants existent ou les créer à la volée si nécessaire.
-        *   Générer un mouvement de stock `split_out` pour diminuer le stock du produit parent.
-        *   Générer des mouvements de stock `split_in` pour augmenter le stock des produits enfants.
-        *   Assurer que ces opérations sont atomiques (transaction de base de données).
-    *   **Assemblage (Kits/Nomenclatures) :** Gérer les produits composés (kits) où la vente d'un produit principal entraîne la sortie de stock de ses composants, ou l'assemblage d'un kit augmente son stock et diminue celui des composants.
-*   **Gestion des Devis/Propositions Commerciales :** Avant le cycle de vente.
-*   **Comptabilité :** Intégration plus poussée avec un plan comptable, génération d'écritures, suivi des balances (actuellement, seul le statut de paiement des factures/ventes est géré).
-*   **Export de Données :** Fonctionnalités d'export en CSV/Excel pour les rapports et les listes.
-*   **Tests Unitaires et d'Intégration :** Mettre en place des tests automatisés pour assurer la robustesse.
-*   **API :** Développer une API REST pour permettre des intégrations externes.
-*   **Améliorations UI/UX Avancées :** Utilisation de bibliothèques JavaScript pour des composants plus riches (modales, sélecteurs avancés, graphiques pour les rapports).
-*   **Internationalisation (i18n) et Localisation (l10n) :** Permettre la traduction de l'interface et la gestion de formats locaux (dates, devises).
+*   **Authentification et Gestion des Utilisateurs/Permissions.**
+*   **Tableau de Bord.**
+*   **Assemblage de Produits (Kits/Nomenclatures) :** La partie "assemblage" du fractionnement/assemblage n'a pas été traitée.
+*   **Gestion des Devis/Propositions Commerciales.**
+*   **Comptabilité plus Poussée.**
+*   **Export de Données (CSV/Excel).**
+*   **Tests Unitaires et d'Intégration.**
+*   **API REST.**
+*   **Améliorations UI/UX :**
+    *   Utilisation de bibliothèques JS pour composants riches (modales, datepickers stylisés, graphiques).
+    *   Système de "flash messages" en session.
+    *   Validation JavaScript côté client plus interactive et uniforme.
+    *   Amélioration de la performance de chargement des données pour les `select` avec beaucoup d'options (ex: produits dans les formulaires de transaction) via AJAX/autocomplétion.
+*   **Internationalisation (i18n) et Localisation (l10n).**
+*   **Configuration Globale de l'Entreprise :** Pour les détails (nom, adresse, etc.) figurant sur les documents imprimés.
+*   **Gestion plus fine des erreurs et logging.**
 
-Ce projet constitue une excellente fondation et peut être étendu de manière significative pour répondre à des besoins plus complexes.
+Ce projet constitue une fondation robuste et démontre la faisabilité d'un ERP modulaire avec les technologies choisies.
 
 ---
 **Fin du Rapport.**

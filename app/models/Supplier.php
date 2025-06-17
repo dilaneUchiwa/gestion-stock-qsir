@@ -28,7 +28,7 @@ class Supplier extends Model {
         }
 
 
-        $fields = ['name', 'contact_person', 'email', 'phone', 'address'];
+        $fields = ['name', 'contact_person', 'email', 'phone', 'address', 'supplier_category_id'];
         $params = [];
         $columns = [];
         $placeholders = [];
@@ -37,9 +37,23 @@ class Supplier extends Model {
             if (isset($data[$field])) {
                 $columns[] = $field;
                 $placeholders[] = ':' . $field;
-                $params[':' . $field] = $data[$field] ?: null; // Store empty strings as NULL for optional fields
+                // supplier_category_id can be null if empty string is passed
+                if (($field === 'supplier_category_id' || $field === 'contact_person' || $field === 'phone' || $field === 'address') && $data[$field] === '') {
+                    $params[':' . $field] = null;
+                } else {
+                    $params[':' . $field] = $data[$field];
+                }
             }
         }
+        // Ensure supplier_category_id is NULL if not provided or empty string
+        if (array_key_exists('supplier_category_id', $data) && $data['supplier_category_id'] === '' && !isset($params[':supplier_category_id'])) {
+             if(!in_array('supplier_category_id', $columns)){ // Check if not already added (e.g. if it was set to null)
+                $columns[] = 'supplier_category_id';
+                $placeholders[] = ':supplier_category_id';
+             }
+             $params[':supplier_category_id'] = null;
+        }
+
 
         if (empty($columns)) return false;
 
@@ -64,7 +78,10 @@ class Supplier extends Model {
      * @return array An array of all suppliers.
      */
     public function getAll() {
-        $sql = "SELECT * FROM {$this->tableName} ORDER BY name ASC";
+        $sql = "SELECT s.*, sc.name AS supplier_category_name
+                FROM {$this->tableName} s
+                LEFT JOIN supplier_categories sc ON s.supplier_category_id = sc.id
+                ORDER BY s.name ASC";
         try {
             return $this->db->select($sql);
         } catch (PDOException $e) {
@@ -79,7 +96,10 @@ class Supplier extends Model {
      * @return mixed The supplier data as an associative array or false if not found.
      */
     public function getById($id) {
-        $sql = "SELECT * FROM {$this->tableName} WHERE id = :id";
+        $sql = "SELECT s.*, sc.name AS supplier_category_name
+                FROM {$this->tableName} s
+                LEFT JOIN supplier_categories sc ON s.supplier_category_id = sc.id
+                WHERE s.id = :id";
         try {
             $result = $this->db->select($sql, [':id' => $id]);
             return $result ? $result[0] : false;
@@ -106,14 +126,19 @@ class Supplier extends Model {
             return false;
         }
 
-        $fields = ['name', 'contact_person', 'email', 'phone', 'address'];
+        $fields = ['name', 'contact_person', 'email', 'phone', 'address', 'supplier_category_id'];
         $params = [':id' => $id];
         $setParts = [];
 
         foreach ($fields as $field) {
-            if (isset($data[$field])) {
+            // Use array_key_exists to allow setting fields to NULL explicitly
+            if (array_key_exists($field, $data)) {
                 $setParts[] = "{$field} = :{$field}";
-                $params[':' . $field] = $data[$field] ?: null;
+                if (($field === 'supplier_category_id' || $field === 'contact_person' || $field === 'phone' || $field === 'address') && $data[$field] === '') {
+                     $params[':' . $field] = null;
+                } else {
+                    $params[':' . $field] = $data[$field];
+                }
             }
         }
 

@@ -3,6 +3,7 @@
 <?php if ($supplier): ?>
     <h2><?php echo htmlspecialchars($supplier['name']); ?></h2>
     <p><strong>ID :</strong> <?php echo htmlspecialchars($supplier['id']); ?></p>
+    <p><strong>Catégorie :</strong> <?php echo htmlspecialchars($supplier['supplier_category_name'] ?? 'N/A'); ?></p>
     <p><strong>Personne de contact :</strong> <?php echo htmlspecialchars($supplier['contact_person'] ?? 'N/A'); ?></p>
     <p><strong>Email :</strong> <?php echo htmlspecialchars($supplier['email']); ?></p>
     <p><strong>Téléphone :</strong> <?php echo htmlspecialchars($supplier['phone'] ?? 'N/A'); ?></p>

@@ -6,61 +6,68 @@
 *   Navigateur Web
 *   Routeur (`public/index.php`)
 *   `PurchaseorderController.php`
-*   `PurchaseOrder.php` (Modèle Commande Fournisseur)
-*   `PurchaseOrderItem.php` (Modèle Ligne Commande Fournisseur - bien que la logique principale soit dans `PurchaseOrder.php`)
-*   `Supplier.php` (Modèle Fournisseur - pour lister les fournisseurs)
-*   `Product.php` (Modèle Produit - pour lister les produits)
+*   `PurchaseOrderModel.php` (Nom corrigé pour cohérence)
+*   `SupplierModel.php`
+*   `ProductModel.php`
+*   `UnitModel.php`
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)
 *   Vue (`procurement/purchase_orders/create.php`, `layouts/main.php`)
-*   JavaScript (côté client pour l'ajout dynamique de lignes d'items)
+*   JavaScript (côté client pour l'ajout dynamique de lignes d'items et la gestion des unités)
 
 **Séquence :**
 
 1.  **Utilisateur -> Navigateur Web :**
-    *   Navigue vers la page de création de commande fournisseur (ex: via un lien "Nouvelle Commande Fournisseur").
+    *   Navigue vers la page de création de commande fournisseur.
     *   Requête GET (ex: `index.php?url=purchaseorder/create`).
 
 2.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le Routeur appelle `PurchaseorderController::create()`.
 
 3.  **Routeur -> `PurchaseorderController::create()` :**
-    *   `PurchaseorderController` charge les fournisseurs (`SupplierModel->getAll()`) et les produits (`ProductModel->getAll()`).
-    *   Appelle `renderView('procurement/purchase_orders/create', $data)` avec les fournisseurs, produits, etc.
+    *   `PurchaseorderController` charge `SupplierModel`, `ProductModel`, `UnitModel`.
+    *   Appelle `SupplierModel->getAll()`.
+    *   Appelle `ProductModel->getAll()` (qui inclut les infos de l'unité de base).
+    *   Appelle `UnitModel->getAll()` (pour une liste générale des unités si besoin en fallback).
+    *   Pour chaque produit récupéré, appelle `ProductModel->getUnitsForProduct($productId)` pour obtenir ses unités configurées. Construit `$productUnitsMap`.
+    *   Appelle `renderView('procurement/purchase_orders/create', $data)` avec fournisseurs, produits, toutes les unités, et `$productUnitsMap`.
 
 4.  **`PurchaseorderController` -> Vue (`procurement/purchase_orders/create.php`) :**
-    *   La vue affiche le formulaire de création de commande.
-    *   Les listes de fournisseurs et produits sont utilisées pour peupler des `<select>`.
-    *   Le JavaScript pour l'ajout/suppression dynamique de lignes d'items est initialisé.
+    *   La vue affiche le formulaire.
+    *   Les listes de fournisseurs et produits peuplent les `<select>` initiaux.
+    *   `$productUnitsMap` est encodé en JSON et passé au JavaScript.
+    *   Le JavaScript pour l'ajout/suppression dynamique de lignes et la population des `select` d'unités est initialisé.
 
 5.  **Utilisateur -> Navigateur Web (Formulaire) :**
     *   Sélectionne un fournisseur, entre les dates, notes.
     *   Utilise l'interface JavaScript pour ajouter des lignes de produits :
-        *   Sélectionne un produit.
-        *   Entre la quantité commandée et le prix unitaire (le prix peut être pré-rempli à partir du produit).
-        *   Le JavaScript met à jour le sous-total de la ligne et le total général de la commande dynamiquement.
+        *   Sélectionne un produit : Le JS utilise `$productUnitsMap` pour peupler le `<select>` d'unité de la ligne avec les unités configurées pour ce produit. L'unité de base est souvent présélectionnée.
+        *   Sélectionne une unité pour la ligne.
+        *   Entre la quantité commandée (dans l'unité sélectionnée) et le prix unitaire (pour l'unité sélectionnée). Le prix peut être pré-rempli à partir des données du produit (si le prix est par unité de base, une adaptation manuelle ou JS pourrait être nécessaire, mais ici on suppose que le prix est saisi pour l'unité choisie).
+        *   Le JS met à jour le sous-total de la ligne et le total général.
     *   Clique sur "Créer Commande".
-    *   Le navigateur envoie une requête POST (ex: `index.php?url=purchaseorder/store`) avec les données de l'en-tête de la commande et un tableau d'items (`$_POST['items']`).
+    *   Le navigateur envoie une requête POST avec les données de l'en-tête et un tableau d'items (`$_POST['items']`), chaque item incluant `product_id`, `unit_id`, `quantity_ordered`, `unit_price`.
 
 6.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le Routeur appelle `PurchaseorderController::store()`.
 
 7.  **Routeur -> `PurchaseorderController::store()` :**
     *   Récupère et valide les données POST (en-tête et items).
-        *   Si validation échoue : Recharge la vue `create.php` avec erreurs et données.
+        *   Pour chaque item, valide `unit_id` en utilisant `ProductModel->isUnitValidForProduct($productId, $unitId)`.
+        *   Si validation échoue : Recharge la vue `create.php` avec erreurs, données soumises, et les maps/listes nécessaires.
     *   Si validation réussit : Appelle `PurchaseOrderModel->createOrder($data, $itemsData)`.
 
 8.  **`PurchaseorderController` -> `PurchaseOrderModel::createOrder($data, $itemsData)` :**
-    *   Le modèle `PurchaseOrder.php` commence une transaction de base de données.
+    *   Le modèle `PurchaseOrderModel.php` commence une transaction de base de données.
     *   **Insertion de l'en-tête de la commande :**
         *   Construit une requête SQL INSERT pour `purchase_orders`.
-        *   Calcule `total_amount` basé sur `$itemsData`.
+        *   Calcule `total_amount` basé sur `$itemsData` (somme des `quantity_ordered * unit_price`).
         *   Appelle `Database->insert()` pour `purchase_orders`. Récupère `$poId`.
         *   Si échec, rollback et retourne `false`.
     *   **Insertion des lignes de commande (items) :**
         *   Pour chaque item dans `$itemsData` :
-            *   Construit une requête SQL INSERT pour `purchase_order_items` (incluant `$poId`, `product_id`, `quantity_ordered`, `unit_price`).
-            *   Appelle `Database->executeQuery()` (ou `insert()` si `PurchaseOrderItemModel` était utilisé directement pour chaque item).
+            *   Construit une requête SQL INSERT pour `purchase_order_items` (incluant `$poId`, `product_id`, `unit_id`, `quantity_ordered`, `unit_price`).
+            *   Appelle `Database->insert()`.
             *   Si échec, rollback et retourne `false`.
     *   Si toutes les insertions réussissent : Commit la transaction.
     *   Retourne `$poId`.

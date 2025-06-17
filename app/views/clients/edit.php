@@ -35,6 +35,19 @@
         </select>
     </div>
     <div class="form-group">
+        <label for="client_category_id">Catégorie de client</label>
+        <select name="client_category_id" id="client_category_id">
+            <option value="">Aucune catégorie</option>
+            <?php if (!empty($client_categories)): ?>
+                <?php foreach ($client_categories as $category): ?>
+                    <option value="<?php echo htmlspecialchars($category['id']); ?>" <?php echo (isset($client['client_category_id']) && $client['client_category_id'] == $category['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($category['name']); ?>
+                    </option>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </select>
+    </div>
+    <div class="form-group">
         <label for="email">Adresse e-mail</label>
         <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($client['email'] ?? ''); ?>">
         <small>Requis si le type de client est 'connu', unique si fourni.</small>

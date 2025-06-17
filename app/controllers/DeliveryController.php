@@ -8,6 +8,7 @@ class DeliveryController extends Controller {
     private $purchaseOrderModel;
     private $supplierModel;
     private $productModel;
+    private $unitModel; // Added UnitModel
 
     public function __construct() {
         parent::__construct();
@@ -15,6 +16,7 @@ class DeliveryController extends Controller {
         $this->purchaseOrderModel = $this->loadModel('PurchaseOrder');
         $this->supplierModel = $this->loadModel('Supplier');
         $this->productModel = $this->loadModel('Product');
+        $this->unitModel = $this->loadModel('Unit'); // Load UnitModel
     }
 
     /**
@@ -53,7 +55,14 @@ class DeliveryController extends Controller {
         $purchaseOrder = null;
         $poItems = [];
         $suppliers = $this->supplierModel->getAll();
-        $products = $this->productModel->getAll(); // For direct delivery or adding unplanned items
+        $products = $this->productModel->getAll();
+        $units = $this->unitModel->getAll();
+
+        $productUnitsMap = [];
+        // Fetch units for all products that might be added manually
+        foreach ($products as $product) {
+            $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+        }
 
         if ($poId) {
             $purchaseOrder = $this->purchaseOrderModel->getByIdWithItems($poId);
@@ -78,7 +87,9 @@ class DeliveryController extends Controller {
             'purchaseOrder' => $purchaseOrder, // Full PO object if poId is valid
             'poItems' => $poItems, // Items from PO, possibly filtered for pending receipt
             'suppliers' => $suppliers, // For direct delivery
-            'products' => $products,  // For adding items not on PO / direct delivery
+            'products' => $products,
+            'units' => $units,
+            'productUnitsMap' => $productUnitsMap, // Pass the map
             'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
             'title' => $poId ? "Créer une livraison pour BC-{$poId}" : 'Créer une livraison directe'
         ]);
@@ -133,9 +144,10 @@ class DeliveryController extends Controller {
             $itemsData = [];
             if (isset($_POST['items']) && is_array($_POST['items'])) {
                 foreach ($_POST['items'] as $item) {
-                    if (!empty($item['product_id']) && isset($item['quantity_received']) && (int)$item['quantity_received'] > 0) {
+                    if (!empty($item['product_id']) && isset($item['quantity_received']) && (int)$item['quantity_received'] > 0 && !empty($item['unit_id'])) {
                         $itemsData[] = [
                             'product_id' => (int)$item['product_id'],
+                            'unit_id' => (int)$item['unit_id'], // Add unit_id
                             'quantity_received' => (int)$item['quantity_received'],
                             'purchase_order_item_id' => !empty($item['purchase_order_item_id']) ? (int)$item['purchase_order_item_id'] : null,
                         ];
@@ -146,8 +158,18 @@ class DeliveryController extends Controller {
             $errors = [];
             if (empty($data['delivery_date'])) $errors['delivery_date'] = "La date de livraison est requise.";
             if (empty($data['purchase_order_id']) && empty($data['supplier_id'])) $errors['supplier_id'] = "Un fournisseur ou un bon de commande lié est requis.";
-            if (empty($itemsData)) $errors['items'] = "Au moins un article doit être réceptionné.";
-             if (!in_array($data['type'], $this->deliveryModel->allowedTypes)) $errors['type'] = "Type de livraison non valide.";
+            if (empty($itemsData)) $errors['items'] = "Au moins un article doit être réceptionné (avec produit, unité et quantité).";
+            if (!in_array($data['type'], $this->deliveryModel->allowedTypes)) $errors['type'] = "Type de livraison non valide.";
+
+            foreach($itemsData as $idx => $item) {
+                if (empty($item['unit_id'])) {
+                    $errors["item_{$idx}_unit_id"] = "L'unité pour l'article est requise.";
+                } else if (!$this->productModel->isUnitValidForProduct((int)$item['product_id'], (int)$item['unit_id'])) {
+                     $productInfo = $this->productModel->getById((int)$item['product_id']);
+                     $unitInfo = $this->unitModel->getById((int)$item['unit_id']);
+                     $errors["item_{$idx}_unit_id"] = "L'unité '".($unitInfo ? $unitInfo['name'] : $item['unit_id'])."' n'est pas valide pour le produit '".($productInfo ? $productInfo['name'] : $item['product_id'])."'.";
+                }
+            }
 
             // Further validation for quantities if linked to PO
             if ($data['purchase_order_id']) {
@@ -189,15 +211,32 @@ class DeliveryController extends Controller {
                     if($purchaseOrder) $poItems = $this->getPendingPoItems($data['purchase_order_id'], $purchaseOrder['items']);
                 }
                 $suppliers = $this->supplierModel->getAll();
-                $products = $this->productModel->getAll();
+                $productsFullList = $this->productModel->getAll(); // Renamed for clarity
+                $unitsAll = $this->unitModel->getAll(); // Renamed for clarity
+
+                $productUnitsMapForView = [];
+                foreach ($productsFullList as $p) {
+                    $productUnitsMapForView[$p['id']] = $this->productModel->getUnitsForProduct($p['id']);
+                }
+                if ($purchaseOrder && !empty($purchaseOrder['items'])) { // Ensure units for PO items are in the map
+                    foreach($purchaseOrder['items'] as $poItem) {
+                         if (!isset($productUnitsMapForView[$poItem['product_id']])) {
+                             $productUnitsMapForView[$poItem['product_id']] = $this->productModel->getUnitsForProduct($poItem['product_id']);
+                         }
+                    }
+                }
+
+
                 $this->renderView('procurement/deliveries/create', [
                     'errors' => $errors,
                     'data' => $data,
-                    'formItemsData' => $itemsData, // Submitted items for repopulation
+                    'formItemsData' => $itemsData,
                     'purchaseOrder' => $purchaseOrder,
                     'poItems' => $poItems,
                     'suppliers' => $suppliers,
-                    'products' => $products,
+                    'products' => $productsFullList, // Pass full list for product dropdowns
+                    'units' => $unitsAll, // Pass all units for fallback
+                    'productUnitsMap' => $productUnitsMapForView,
                     'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
                     'title' => $data['purchase_order_id'] ? "Créer une livraison pour BC-{$data['purchase_order_id']}" : 'Créer une livraison directe'
                 ]);
@@ -217,7 +256,20 @@ class DeliveryController extends Controller {
                      if($purchaseOrder) $poItems = $this->getPendingPoItems($data['purchase_order_id'], $purchaseOrder['items']);
                 }
                 $suppliers = $this->supplierModel->getAll();
-                $products = $this->productModel->getAll();
+                $productsFullList = $this->productModel->getAll();
+                $unitsAll = $this->unitModel->getAll();
+                $productUnitsMapForView = []; // Regenerate for error view
+                foreach ($productsFullList as $p) {
+                    $productUnitsMapForView[$p['id']] = $this->productModel->getUnitsForProduct($p['id']);
+                }
+                 if ($purchaseOrder && !empty($purchaseOrder['items'])) {
+                    foreach($purchaseOrder['items'] as $poItem) {
+                         if (!isset($productUnitsMapForView[$poItem['product_id']])) {
+                             $productUnitsMapForView[$poItem['product_id']] = $this->productModel->getUnitsForProduct($poItem['product_id']);
+                         }
+                    }
+                }
+
                 $this->renderView('procurement/deliveries/create', [
                     'errors' => $errors,
                     'data' => $data,
@@ -225,7 +277,9 @@ class DeliveryController extends Controller {
                     'purchaseOrder' => $purchaseOrder,
                     'poItems' => $poItems,
                     'suppliers' => $suppliers,
-                    'products' => $products,
+                    'products' => $productsFullList,
+                    'units' => $unitsAll,
+                    'productUnitsMap' => $productUnitsMapForView,
                     'allowedDeliveryTypes' => $this->deliveryModel->allowedTypes,
                     'title' => $data['purchase_order_id'] ? "Créer une livraison pour BC-{$data['purchase_order_id']}" : 'Créer une livraison directe'
                 ]);
@@ -260,5 +314,25 @@ class DeliveryController extends Controller {
     // Edit functionality for deliveries is often complex and risky due to stock implications.
     // Usually, a "return to supplier" or stock adjustment is done instead of editing a past delivery.
     // Thus, edit/update methods are omitted for now unless specifically requested.
+
+    /**
+     * Generates a printable Delivery Note.
+     * @param int $id The ID of the Delivery.
+     */
+    public function print_delivery_note($id) {
+        $delivery = $this->deliveryModel->getByIdWithDetails($id); // This fetches items, supplier, PO ref
+        if (!$delivery) {
+            $this->renderView('errors/404', ['message' => "Bon de livraison avec l'ID {$id} non trouvé."]);
+            return;
+        }
+
+        // Data for the view
+        $data = [
+            'delivery' => $delivery,
+            'title' => "Bon de Livraison #BL-" . $delivery['id']
+            // Company details can be hardcoded in the print view or fetched from a config/DB
+        ];
+        $this->renderPrintView('procurement/deliveries/print_delivery_note', $data);
+    }
 }
 ?>

@@ -23,6 +23,19 @@
         <input type="text" name="name" id="name" value="<?php echo htmlspecialchars($supplier['name'] ?? ''); ?>" required>
     </div>
     <div class="form-group">
+        <label for="supplier_category_id">Catégorie de fournisseur</label>
+        <select name="supplier_category_id" id="supplier_category_id">
+            <option value="">Aucune catégorie</option>
+            <?php if (!empty($supplier_categories)): ?>
+                <?php foreach ($supplier_categories as $category): ?>
+                    <option value="<?php echo htmlspecialchars($category['id']); ?>" <?php echo (isset($supplier['supplier_category_id']) && $supplier['supplier_category_id'] == $category['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($category['name']); ?>
+                    </option>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </select>
+    </div>
+    <div class="form-group">
         <label for="contact_person">Personne de contact</label>
         <input type="text" name="contact_person" id="contact_person" value="<?php echo htmlspecialchars($supplier['contact_person'] ?? ''); ?>">
     </div>

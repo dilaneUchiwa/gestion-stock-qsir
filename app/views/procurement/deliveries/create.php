@@ -72,64 +72,84 @@
             <thead>
                 <tr>
                     <th>Produit *</th>
-                    <th>Quantité reçue *</th>
                     <?php if ($purchaseOrder): ?>
-                        <th>Commandé à l'origine</th>
-                        <th>Déjà reçu</th>
-                        <th>En attente</th>
+                        <th>Commandé (BC)</th>
+                        <th>Déjà reçu (BC)</th>
+                        <th>Restant (BC)</th>
                     <?php endif; ?>
-                    <th>Unité de mesure</th>
+                    <th>Unité (Réception) *</th>
+                    <th>Quantité reçue *</th>
                     <th>Action</th>
                 </tr>
             </thead>
             <tbody id="deliveryItemsTbody">
                 <?php
-                $itemsToProcess = $formItemsData ?? $poItems ?? []; // $formItemsData for repopulation, $poItems for PO load
-                if (empty($itemsToProcess) && !$purchaseOrder) { // For direct delivery, start with one empty row
-                    $itemsToProcess = [['product_id' => '', 'quantity_received' => 1]];
+                $itemsToProcess = $formItemsData ?? $poItems ?? [];
+                if (empty($itemsToProcess) && !$purchaseOrder) {
+                    $itemsToProcess = [['product_id' => '', 'unit_id' => '', 'quantity_received' => 1]];
                 }
 
                 foreach ($itemsToProcess as $idx => $item):
                     $productId = $item['product_id'] ?? null;
-                    $poItemId = $item['id'] ?? ($item['purchase_order_item_id'] ?? null); // if from PO, $item['id'] is po_item_id
-                    $productDetails = null;
-                    foreach($products as $p) { if($p['id'] == $productId) $productDetails = $p; break;}
+                    $poItemId = $item['id'] ?? ($item['purchase_order_item_id'] ?? null);
+                    $currentUnitId = $item['unit_id'] ?? null; // unit_id from PO item or form repopulation
+                    $currentUnitName = $item['unit_name'] ?? ''; // from PO item
+                    $currentUnitSymbol = $item['unit_symbol'] ?? ''; // from PO item
+
+                    $productDetails = null; // Full product details from $products array
+                    if ($productId) {
+                        foreach($products as $p) { if($p['id'] == $productId) { $productDetails = $p; break; } }
+                    }
                 ?>
                 <tr class="item-row">
                     <td>
                         <input type="hidden" name="items[<?php echo $idx; ?>][purchase_order_item_id]" value="<?php echo htmlspecialchars($poItemId); ?>">
-                        <select name="items[<?php echo $idx; ?>][product_id]" class="product-select" required data-index="<?php echo $idx; ?>" <?php echo ($purchaseOrder && $productId) ? 'readonly' : ''; ?>>
-                            <option value="">Sélectionnez le produit</option>
-                            <?php foreach ($products as $p): ?>
-                                <option value="<?php echo htmlspecialchars($p['id']); ?>"
-                                        data-unit="<?php echo htmlspecialchars($p['unit_of_measure'] ?? ''); ?>"
-                                        <?php echo ($productId == $p['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($p['name']); ?> (Stock: <?php echo htmlspecialchars($p['quantity_in_stock'] ?? 0); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                         <?php if ($purchaseOrder && $productId && $productDetails): ?>
+                        <?php if ($purchaseOrder && $productId && $productDetails): ?>
                             <input type="hidden" name="items[<?php echo $idx; ?>][product_id]" value="<?php echo htmlspecialchars($productId); ?>">
                             <span><?php echo htmlspecialchars($productDetails['name']); ?></span>
+                        <?php else: ?>
+                            <select name="items[<?php echo $idx; ?>][product_id]" class="product-select" required data-index="<?php echo $idx; ?>">
+                                <option value="">Sélectionnez le produit</option>
+                                <?php foreach ($products as $p): ?>
+                                    <option value="<?php echo htmlspecialchars($p['id']); ?>"
+                                            data-base-unit-id="<?php echo htmlspecialchars($p['base_unit_id']); ?>"
+                                            data-base-unit-name="<?php echo htmlspecialchars(($p['base_unit_name'] ?? 'N/A') . ' (' . ($p['base_unit_symbol'] ?? '') . ')'); ?>"
+                                            <?php echo ($productId == $p['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($p['name']); ?> (Stock: <?php echo htmlspecialchars($p['quantity_in_stock'] ?? 0); ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php endif; ?>
+                    </td>
+
+                    <?php if ($purchaseOrder): ?>
+                        <td class="text-right"><?php echo htmlspecialchars($item['quantity_ordered'] ?? 'N/A'); ?> <?php echo htmlspecialchars($item['unit_symbol'] ?? ''); ?></td>
+                        <td class="text-right"><?php echo htmlspecialchars($item['quantity_already_received'] ?? '0'); ?> <?php echo htmlspecialchars($item['unit_symbol'] ?? ''); ?></td>
+                        <td class="text-right"><?php echo htmlspecialchars($item['quantity_pending'] ?? $item['quantity_ordered'] ?? 'N/A'); ?> <?php echo htmlspecialchars($item['unit_symbol'] ?? ''); ?></td>
+                    <?php endif; ?>
+
+                    <td>
+                        <?php if ($purchaseOrder && $currentUnitId && $currentUnitName): ?>
+                            <input type="hidden" name="items[<?php echo $idx; ?>][unit_id]" value="<?php echo htmlspecialchars($currentUnitId); ?>">
+                            <span><?php echo htmlspecialchars($currentUnitName . ($currentUnitSymbol ? ' ('.$currentUnitSymbol.')' : '')); ?></span>
+                        <?php else: ?>
+                            <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>" data-selected-unit-id="<?php echo htmlspecialchars($currentUnitId); ?>">
+                                <option value="">Sélectionnez produit</option>
+                                <?php /* JS will populate this if product is selected, or repopulate if $currentUnitId is set */ ?>
+                            </select>
                         <?php endif; ?>
                     </td>
                     <td>
                         <input type="number" name="items[<?php echo $idx; ?>][quantity_received]" class="quantity-input"
                                value="<?php echo htmlspecialchars($item['quantity_received'] ?? ($item['quantity_pending'] ?? 1)); ?>"
-                               min="1"
+                               min="0" <?php // Allow 0 for initial state if PO item is fully received but row is still shown ?>
                                <?php if(isset($item['quantity_pending'])): ?>max="<?php echo htmlspecialchars($item['quantity_pending']); ?>"<?php endif; ?>
                                required data-index="<?php echo $idx; ?>">
                     </td>
-                    <?php if ($purchaseOrder): ?>
-                        <td><?php echo htmlspecialchars($item['quantity_ordered'] ?? 'N/A'); ?></td>
-                        <td><?php echo htmlspecialchars($item['quantity_already_received'] ?? '0'); ?></td>
-                        <td><?php echo htmlspecialchars($item['quantity_pending'] ?? $item['quantity_ordered'] ?? 'N/A'); ?></td>
-                    <?php endif; ?>
-                    <td class="unit-display"><?php echo htmlspecialchars($productDetails['unit_of_measure'] ?? ($item['unit_of_measure'] ?? '')); ?></td>
                     <td>
-                        <?php if (!$purchaseOrder): // Allow removing only for direct deliveries or non-PO items ?>
-                        <button type="button" class="remove-item-btn button-danger">Supprimer</button>
-                        <?php else: echo "Verrouillé (depuis BC)"; endif; ?>
+                        <?php if (!$purchaseOrder || !empty($item['can_be_removed'])): // Allow removing for direct deliveries or non-PO items, or specifically flagged items ?>
+                        <button type="button" class="remove-item-btn button-danger btn-sm">Supprimer</button>
+                        <?php elseif ($purchaseOrder && $productId) : echo "Verrouillé (BC)"; endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -149,20 +169,71 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const itemsTbody = document.getElementById('deliveryItemsTbody');
-    const addItemBtn = document.getElementById('addItemBtn'); // Might be null if PO based
-    const productsData = <?php echo json_encode(array_map(function($p){ return ['id'=>$p['id'], 'name'=>$p['name'], 'unit_of_measure'=>$p['unit_of_measure'] ?? '', 'quantity_in_stock'=>$p['quantity_in_stock'] ?? 0]; }, $products)); ?>;
+    const addItemBtn = document.getElementById('addItemBtn');
+    const productsData = <?php echo json_encode(array_map(function($p){
+        return [ // This is the basic product data for the product dropdown
+            'id' => $p['id'],
+            'name' => $p['name'],
+            'base_unit_id' => $p['base_unit_id'] ?? null,
+            'base_unit_name' => ($p['base_unit_name'] ?? 'N/A') . ' (' . ($p['base_unit_symbol'] ?? '') . ')',
+            'quantity_in_stock' => $p['quantity_in_stock'] ?? 0
+        ];
+    }, $products)); ?>;
+    const productUnitsMap = <?php echo json_encode($productUnitsMap ?? []); ?>; // Map of [productId => [units...]]
+    // const allUnitsData = <?php echo json_encode($units ?? []); ?>; // Full list of all units, if needed for fallback
+
     let itemIndex = itemsTbody.querySelectorAll('.item-row').length;
     const isPoBased = <?php echo $purchaseOrder ? 'true' : 'false'; ?>;
 
+    function populateUnitSelect(unitSelectElement, productId, selectedUnitId = null) {
+        unitSelectElement.innerHTML = '<option value="">Chargement...</option>';
+        const productEntry = productsData.find(p => p.id == productId); // Find basic info
+        const unitsForProduct = productUnitsMap[productId] || []; // Get specific units
+
+        unitSelectElement.innerHTML = ''; // Clear loading/previous options
+
+        if (unitsForProduct.length > 0) {
+            unitsForProduct.forEach(pu => {
+                const option = document.createElement('option');
+                option.value = pu.unit_id; // unit_id from product_units join
+                option.textContent = `${pu.name} (${pu.symbol})`;
+                // conversion_factor_to_base_unit is in pu.conversion_factor_to_base_unit
+                if (selectedUnitId && pu.unit_id == selectedUnitId) {
+                    option.selected = true;
+                } else if (!selectedUnitId && productEntry && pu.unit_id == productEntry.base_unit_id) {
+                    option.selected = true; // Default to product's base unit if no specific preselection
+                }
+                unitSelectElement.appendChild(option);
+            });
+        } else if (productEntry && productEntry.base_unit_id && productEntry.base_unit_name) {
+            // Fallback: if productUnitsMap somehow missed this product, but we know its base unit from productsData
+            const option = document.createElement('option');
+            option.value = productEntry.base_unit_id;
+            option.textContent = productEntry.base_unit_name;
+            option.selected = true;
+            unitSelectElement.appendChild(option);
+        } else {
+            unitSelectElement.innerHTML = '<option value="">Aucune unité configurée</option>';
+        }
+    }
+
     function addRowEventListeners(row) {
         const productSelect = row.querySelector('.product-select');
-        if (productSelect) { // productSelect might be null if it's hidden for PO based items
+        const unitSelect = row.querySelector('.unit-select');
+
+        // This event listener is primarily for non-PO based rows, or rows where product can be changed.
+        if (productSelect && unitSelect && !productSelect.hasAttribute('readonly') && !unitSelect.hasAttribute('readonly')) {
             productSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                const unit = selectedOption.dataset.unit || '';
-                const unitDisplay = this.closest('.item-row').querySelector('.unit-display');
-                if(unitDisplay) unitDisplay.textContent = unit;
+                const productId = this.value;
+                populateUnitSelect(unitSelect, productId);
             });
+
+            // For existing rows on form load (e.g., direct delivery with validation errors)
+            // If product is selected and unit select is present and not readonly.
+            if (productSelect.value) {
+                const selectedUnit = unitSelect.dataset.selectedUnitId || (productUnitsMap[productSelect.value] && productUnitsMap[productSelect.value].find(u => u.unit_id == productsData.find(p=>p.id == productSelect.value)?.base_unit_id)?.unit_id);
+                populateUnitSelect(unitSelect, productSelect.value, selectedUnit);
+            }
         }
     }
 
@@ -184,52 +255,57 @@ document.addEventListener('DOMContentLoaded', function () {
         addItemBtn.addEventListener('click', function() {
             const newRow = document.createElement('tr');
             newRow.classList.add('item-row');
+            const productOptionsHTML = productsData.map(p =>
+                `<option value="${p.id}"
+                         data-base-unit-id="${p.base_unit_id}"
+                         data-base-unit-name="${p.base_unit_name}">
+                     ${p.name} (Stock: ${p.quantity_in_stock})
+                 </option>`
+            ).join('');
+
             newRow.innerHTML = `
                 <td>
                     <select name="items[${itemIndex}][product_id]" class="product-select" required data-index="${itemIndex}">
                         <option value="">Sélectionnez le produit</option>
-                        ${productsData.map(p => `<option value="${p.id}" data-unit="${p.unit_of_measure}">${p.name} (Stock: ${p.quantity_in_stock})</option>`).join('')}
+                        ${productOptionsHTML}
+                    </select>
+                </td>
+                <td>
+                    <select name="items[${itemIndex}][unit_id]" class="unit-select" required data-index="${itemIndex}" data-selected-unit-id="">
+                        <option value="">Sélectionnez produit</option>
                     </select>
                 </td>
                 <td><input type="number" name="items[${itemIndex}][quantity_received]" class="quantity-input" value="1" min="1" required data-index="${itemIndex}"></td>
-                <td class="unit-display"></td>
-                <td><button type="button" class="remove-item-btn button-danger">Supprimer</button></td>
+                <td><button type="button" class="remove-item-btn button-danger btn-sm">Supprimer</button></td>
             `;
             itemsTbody.appendChild(newRow);
             addRowEventListeners(newRow);
+
+            // Attach remove listener specifically for these new rows (if not PO based)
             newRow.querySelector('.remove-item-btn').addEventListener('click', function() {
-                if (itemsTbody.querySelectorAll('.item-row').length > 1) {
-                    this.closest('.item-row').remove();
-                    updateItemIndices();
-                } else {
-                    alert('Une livraison doit contenir au moins un article.');
-                }
+                // For direct deliveries, ensure at least one item if it's the last one.
+                // This logic might need refinement based on whether the form starts empty or with one row.
+                // if (!isPoBased && itemsTbody.querySelectorAll('.item-row').length <= 1) {
+                //    alert('Une livraison directe doit contenir au moins un article.'); return;
+                // }
+                this.closest('.item-row').remove();
+                updateItemIndices();
             });
             itemIndex++;
         });
     }
 
-    // Initial setup for existing rows
+    // Initial setup for existing rows (especially for direct deliveries with errors)
     itemsTbody.querySelectorAll('.item-row').forEach(row => {
-        addRowEventListeners(row);
-        // Set initial unit display for direct deliveries if product is pre-selected (e.g. form repopulation)
-        if (!isPoBased) {
-            const productSelect = row.querySelector('.product-select');
-            if(productSelect && productSelect.value) {
-                 const selectedOption = productSelect.options[productSelect.selectedIndex];
-                 const unitDisplay = row.querySelector('.unit-display');
-                 if (selectedOption && unitDisplay) unitDisplay.textContent = selectedOption.dataset.unit || '';
-            }
+        if (row.querySelector('.product-select') && !row.querySelector('.product-select').hasAttribute('readonly')) { // only for editable rows
+            addRowEventListeners(row);
         }
-        // Add remove listener for direct delivery rows that might be pre-populated on error
-        if (!isPoBased && row.querySelector('.remove-item-btn')) {
-             row.querySelector('.remove-item-btn').addEventListener('click', function() {
-                if (itemsTbody.querySelectorAll('.item-row').length > 1) {
-                    this.closest('.item-row').remove();
-                    updateItemIndices();
-                } else {
-                    alert('Une livraison doit contenir au moins un article.');
-                }
+        // Add remove listener for any pre-existing removable rows (e.g. form repopulation for direct delivery)
+        const removeBtn = row.querySelector('.remove-item-btn');
+        if (removeBtn && (!isPoBased || row.dataset.canBeRemoved === 'true')) { // Assuming data-can-be-removed for specific cases
+             removeBtn.addEventListener('click', function() {
+                this.closest('.item-row').remove();
+                updateItemIndices();
             });
         }
     });

@@ -6,10 +6,14 @@ require_once ROOT_PATH . '/core/Database.php'; // Required for loadModel
 class ProductsController extends Controller {
 
     private $productModel;
+    private $unitModel;
+    private $productCategoryModel;
 
     public function __construct() {
         parent::__construct();
         $this->productModel = $this->loadModel('Product');
+        $this->unitModel = $this->loadModel('Unit');
+        $this->productCategoryModel = $this->loadModel('ProductCategory');
     }
 
     /**
@@ -27,12 +31,15 @@ class ProductsController extends Controller {
     public function show($id) {
         $product = $this->productModel->getById($id);
         if ($product) {
-            $children = $this->productModel->getChildren($id);
-            $parent = null;
-            if ($product['parent_id']) {
-                $parent = $this->productModel->getById($product['parent_id']);
-            }
-            $this->renderView('products/show', ['product' => $product, 'children' => $children, 'parent' => $parent]);
+            // Fetch all configured units for this product, including conversion factors
+            // The existing getUnits() method already provides what we need (id, name, symbol, conversion_factor, is_base_unit)
+            // For clarity, let's rename the variable passed to the view to reflect its usage for stock display.
+            $productConfiguredUnits = $this->productModel->getUnits($id);
+
+            $this->renderView('products/show', [
+                'product' => $product, // Contains base unit name, symbol, and quantity_in_stock (base)
+                'productConfiguredUnits' => $productConfiguredUnits // Contains all units for this product with factors
+            ]);
         } else {
             // Handle product not found, e.g., show a 404 page or redirect
             $this->renderView('errors/404', ['message' => "Produit avec l'ID {$id} non trouvé."]);
@@ -43,8 +50,12 @@ class ProductsController extends Controller {
      * Shows the form for creating a new product.
      */
     public function create() {
-        $products = $this->productModel->getAll(); // For parent selection
-        $this->renderView('products/create', ['products' => $products]);
+        $categories = $this->productCategoryModel->getAll();
+        $units = $this->unitModel->getAll();
+        $this->renderView('products/create', [
+            'categories' => $categories,
+            'units' => $units
+        ]);
     }
 
     /**
@@ -52,44 +63,68 @@ class ProductsController extends Controller {
      */
     public function store() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Basic validation (can be more robust)
+            $errors = [];
             $data = [
                 'name' => $_POST['name'] ?? '',
                 'description' => $_POST['description'] ?? '',
-                'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
-                'unit_of_measure' => $_POST['unit_of_measure'] ?? '',
-                'quantity_in_stock' => isset($_POST['quantity_in_stock']) ? (int)$_POST['quantity_in_stock'] : 0,
-                'purchase_price' => isset($_POST['purchase_price']) ? (float)$_POST['purchase_price'] : 0.0,
-                'selling_price' => isset($_POST['selling_price']) ? (float)$_POST['selling_price'] : 0.0,
+                'category_id' => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
+                'base_unit_id' => !empty($_POST['base_unit_id']) ? (int)$_POST['base_unit_id'] : null,
+                'quantity_in_stock' => isset($_POST['quantity_in_stock']) && $_POST['quantity_in_stock'] !== '' ? (int)$_POST['quantity_in_stock'] : 0,
+                'purchase_price' => isset($_POST['purchase_price']) && $_POST['purchase_price'] !== '' ? (float)$_POST['purchase_price'] : null,
+                'selling_price' => isset($_POST['selling_price']) && $_POST['selling_price'] !== '' ? (float)$_POST['selling_price'] : null,
             ];
 
+            // Validation
             if (empty($data['name'])) {
-                // Handle validation errors, e.g., render form again with errors
-                $products = $this->productModel->getAll();
-                $this->renderView('products/create', ['errors' => ['name' => 'Le nom est requis.'], 'data' => $data, 'products' => $products]);
+                $errors['name'] = 'Le nom du produit est requis.';
+            }
+            if (empty($data['base_unit_id'])) {
+                $errors['base_unit_id'] = "L'unité de base est requise.";
+            } else if (!$this->unitModel->getById($data['base_unit_id'])) {
+                $errors['base_unit_id'] = "L'unité de base sélectionnée n'est pas valide.";
+            }
+            if ($data['category_id'] && !$this->productCategoryModel->getById($data['category_id'])) {
+                $errors['category_id'] = "La catégorie sélectionnée n'est pas valide.";
+            }
+            // TODO: Validate alternative_units structure and values if submitted
+
+            if (!empty($errors)) {
+                $categories = $this->productCategoryModel->getAll();
+                $units = $this->unitModel->getAll();
+                $this->renderView('products/create', [
+                    'errors' => $errors,
+                    'data' => $data,
+                    'categories' => $categories,
+                    'units' => $units,
+                    'alternative_units_data' => $_POST['alternative_units'] ?? []
+                ]);
                 return;
             }
 
             $productId = $this->productModel->create($data);
 
             if ($productId) {
-                // If initial stock quantity is provided, create an initial stock movement
-                if (isset($data['quantity_in_stock']) && $data['quantity_in_stock'] > 0) {
-                    // Note: productModel->updateStock also updates the cache in products.quantity_in_stock
-                    // The create method for Product might already set initial quantity_in_stock.
-                    // If create() method ALREADY sets quantity_in_stock in products table, then updateStock
-                    // here would ADD to it again.
-                    // We need to ensure updateStock is called correctly or that create() doesn't double-count.
-                    // For now, assume Product->create doesn't set quantity_in_stock, and relies on updateStock.
-                    // OR, if Product->create *does* set it, then the 'initial_stock' movement is just for audit,
-                    // and Product->updateStock quantityChange should be 0 for the movement part, or it needs a specific method.
+                // Handle alternative units
+                if (isset($_POST['alternative_units']) && is_array($_POST['alternative_units'])) {
+                    foreach ($_POST['alternative_units'] as $altUnit) {
+                        if (isset($altUnit['unit_id'], $altUnit['conversion_factor']) && !empty($altUnit['unit_id']) && is_numeric($altUnit['conversion_factor'])) {
+                            if ($altUnit['unit_id'] == $data['base_unit_id']) { // Skip if it's the base unit
+                                continue;
+                            }
+                            $addUnitSuccess = $this->productModel->addUnit($productId, (int)$altUnit['unit_id'], (float)$altUnit['conversion_factor']);
+                            if (!$addUnitSuccess) {
+                                // Log error or collect message for user. For now, just log.
+                                error_log("Failed to add alternative unit ID {$altUnit['unit_id']} for product ID {$productId}.");
+                                // Potentially add a user-facing error message later.
+                            }
+                        }
+                    }
+                }
 
-                    // Simpler: Assume Product->create sets the quantity_in_stock.
-                    // We just need to record the movement.
-                    // Let's adjust Product->updateStock to handle this, or add a dedicated method in StockMovementModel.
-                    // For now, let's assume Product->updateStock is smart enough or create a movement directly.
-
-                    // If Product->create already set the stock value in products table:
+                // Initial stock movement (if quantity provided)
+                // ProductModel->create now handles setting product.quantity_in_stock
+                // This movement is for audit trail.
+                if ($data['quantity_in_stock'] > 0) {
                     $stockMovementModel = $this->loadModel('StockMovement');
                     $stockMovementModel->createMovement([
                         'product_id' => $productId,
@@ -97,18 +132,23 @@ class ProductsController extends Controller {
                         'quantity' => $data['quantity_in_stock'],
                         'notes' => 'Stock initial défini lors de la création du produit.'
                     ]);
-                    // And ensure product table quantity_in_stock is correctly set by Product->create()
                 }
+
                 header("Location: /index.php?url=products/show/{$productId}&status=created_success");
                 exit;
             } else {
-                // Handle creation failure
-                $products = $this->productModel->getAll();
-                $this->renderView('products/create', ['errors' => ['general' => 'Échec de la création du produit.'], 'data' => $data, 'products' => $products]);
+                $categories = $this->productCategoryModel->getAll();
+                $units = $this->unitModel->getAll();
+                $this->renderView('products/create', [
+                    'errors' => ['general' => 'Échec de la création du produit.'],
+                    'data' => $data,
+                    'categories' => $categories,
+                    'units' => $units,
+                    'alternative_units_data' => $_POST['alternative_units'] ?? []
+                ]);
             }
         } else {
-            // Not a POST request, redirect to create form or show error
-            header("Location: /index.php?url=products/create"); // Adjust URL
+            header("Location: /index.php?url=products/create");
             exit;
         }
     }
@@ -119,9 +159,30 @@ class ProductsController extends Controller {
      */
     public function edit($id) {
         $product = $this->productModel->getById($id);
+
         if ($product) {
-            $products = $this->productModel->getAll(); // For parent selection
-            $this->renderView('products/edit', ['product' => $product, 'products' => $products]);
+            $categories = $this->productCategoryModel->getAll();
+            $units = $this->unitModel->getAll();
+            $productUnits = $this->productModel->getUnits($id); // Get all units for this product
+
+            // Separate base unit from alternative units for easier handling in the view
+            $baseUnitDetails = null;
+            $alternativeUnitsDetails = [];
+            foreach ($productUnits as $pu) {
+                if ($pu['is_base_unit']) {
+                    $baseUnitDetails = $pu; // Should already be part of $product, but good to have explicitly if needed
+                } else {
+                    $alternativeUnitsDetails[] = $pu;
+                }
+            }
+
+            $this->renderView('products/edit', [
+                'product' => $product,
+                'categories' => $categories,
+                'units' => $units,
+                'product_units' => $productUnits, // Contains all units including base, with 'is_base_unit' flag
+                'alternative_units_details' => $alternativeUnitsDetails // Contains only alternative units
+            ]);
         } else {
             $this->renderView('errors/404', ['message' => "Produit avec l'ID {$id} non trouvé pour la modification."]);
         }
@@ -133,36 +194,99 @@ class ProductsController extends Controller {
      */
     public function update($id) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $data = [
-                'name' => $_POST['name'] ?? '',
-                'description' => $_POST['description'] ?? '',
-                'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
-                'unit_of_measure' => $_POST['unit_of_measure'] ?? '',
-                'quantity_in_stock' => isset($_POST['quantity_in_stock']) ? (int)$_POST['quantity_in_stock'] : 0,
-                'purchase_price' => isset($_POST['purchase_price']) ? (float)$_POST['purchase_price'] : 0.0,
-                'selling_price' => isset($_POST['selling_price']) ? (float)$_POST['selling_price'] : 0.0,
-            ];
-
-            if (empty($data['name'])) {
-                $product = $this->productModel->getById($id); // Get current product data
-                $products = $this->productModel->getAll();
-                $this->renderView('products/edit', ['errors' => ['name' => 'Le nom est requis.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
+            $errors = [];
+            $originalProduct = $this->productModel->getById($id);
+            if (!$originalProduct) {
+                $this->renderView('errors/404', ['message' => "Produit avec l'ID {$id} non trouvé pour la mise à jour."]);
                 return;
             }
 
-            $affectedRows = $this->productModel->update($id, $data);
+            $data = [
+                'name' => $_POST['name'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'category_id' => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
+                // base_unit_id is not updatable via this form as per previous decision
+                // quantity_in_stock is not directly updated here; managed by stock movements.
+                'purchase_price' => isset($_POST['purchase_price']) && $_POST['purchase_price'] !== '' ? (float)$_POST['purchase_price'] : null,
+                'selling_price' => isset($_POST['selling_price']) && $_POST['selling_price'] !== '' ? (float)$_POST['selling_price'] : null,
+            ];
 
-            if ($affectedRows !== false) {
-                header("Location: /index.php?url=products/show/{$id}"); // Adjust URL
+            // Validation
+            if (empty($data['name'])) {
+                $errors['name'] = 'Le nom du produit est requis.';
+            }
+            if ($data['category_id'] && !$this->productCategoryModel->getById($data['category_id'])) {
+                $errors['category_id'] = "La catégorie sélectionnée n'est pas valide.";
+            }
+            // TODO: Validate alternative_units structure and values
+
+            if (!empty($errors)) {
+                // Repopulate data for the view
+                $categories = $this->productCategoryModel->getAll();
+                $units = $this->unitModel->getAll();
+                $productUnits = $this->productModel->getUnits($id);
+                $alternativeUnitsDetails = array_filter($productUnits, fn($pu) => !$pu['is_base_unit']);
+
+                $this->renderView('products/edit', [
+                    'errors' => $errors,
+                    'product' => array_merge($originalProduct, $data), // Show submitted data on error
+                    'categories' => $categories,
+                    'units' => $units,
+                    'product_units' => $productUnits,
+                    'alternative_units_details' => $alternativeUnitsDetails // Show original alternatives on validation error of main fields
+                                                                          // Or try to merge with POSTed alternative_units:
+                                                                          // 'alternative_units_details' => $_POST['alternative_units'] ?? $alternativeUnitsDetails,
+                ]);
+                return;
+            }
+
+            $updateSuccess = $this->productModel->update($id, $data);
+
+            if ($updateSuccess !== false) {
+                // Manage alternative units (simplified: remove all non-base, then add submitted)
+                // TODO: Implement a more granular update (compare, update, add, delete individually)
+                $existingUnits = $this->productModel->getUnits($id);
+                foreach ($existingUnits as $exUnit) {
+                    if (!$exUnit['is_base_unit']) {
+                        $this->productModel->removeUnit($id, $exUnit['id']);
+                    }
+                }
+
+                if (isset($_POST['alternative_units']) && is_array($_POST['alternative_units'])) {
+                    foreach ($_POST['alternative_units'] as $altUnit) {
+                        if (isset($altUnit['unit_id'], $altUnit['conversion_factor']) &&
+                            !empty($altUnit['unit_id']) && is_numeric($altUnit['conversion_factor']) &&
+                            $altUnit['unit_id'] != $originalProduct['base_unit_id']) { // Do not re-add base unit as alternative
+
+                            $addSuccess = $this->productModel->addUnit($id, (int)$altUnit['unit_id'], (float)$altUnit['conversion_factor']);
+                            if (!$addSuccess) {
+                                error_log("Failed to add/update alternative unit ID {$altUnit['unit_id']} for product ID {$id} during update.");
+                                // Collect these errors to show to user if necessary
+                            }
+                        }
+                    }
+                }
+
+                header("Location: /index.php?url=products/show/{$id}&status=updated_success");
                 exit;
             } else {
-                // Handle update failure
-                $product = $this->productModel->getById($id);
-                $products = $this->productModel->getAll();
-                $this->renderView('products/edit', ['errors' => ['general' => 'Échec de la mise à jour du produit.'], 'product' => array_merge((array)$product, $data), 'products' => $products]);
+                // Handle main product update failure
+                $categories = $this->productCategoryModel->getAll();
+                $units = $this->unitModel->getAll();
+                $productUnits = $this->productModel->getUnits($id);
+                $alternativeUnitsDetails = array_filter($productUnits, fn($pu) => !$pu['is_base_unit']);
+
+                $this->renderView('products/edit', [
+                    'errors' => ['general' => 'Échec de la mise à jour du produit.'],
+                    'product' => array_merge($originalProduct, $data),
+                    'categories' => $categories,
+                    'units' => $units,
+                    'product_units' => $productUnits,
+                    'alternative_units_details' => $alternativeUnitsDetails
+                ]);
             }
         } else {
-            header("Location: /index.php?url=products/edit/{$id}"); // Adjust URL
+            header("Location: /index.php?url=products/edit/{$id}");
             exit;
         }
     }

@@ -95,5 +95,33 @@ class Controller {
             }
         }
     }
+
+    /**
+     * Renders a view specifically for printing, without the main layout.
+     * @param string $viewName The name of the view file (e.g., 'sales/print_invoice').
+     * @param array $data Data to pass to the view.
+     * @throws Exception if the view file does not exist.
+     */
+    public function renderPrintView($viewName, $data = []) {
+        $viewFile = ROOT_PATH . '/app/views/' . $viewName . '.php';
+
+        if (file_exists($viewFile)) {
+            // Extract data array to variables for easy access in the view
+            extract($data);
+
+            // Start output buffering
+            ob_start();
+
+            // Include the view file
+            require $viewFile;
+
+            // Get the content of the buffer and echo it
+            echo ob_get_clean();
+        } else {
+            // Handle view not found - perhaps a simpler error for print views
+            // or throw an exception that can be caught by a global error handler.
+            throw new Exception("Print view file not found: {$viewFile}");
+        }
+    }
 }
 ?>

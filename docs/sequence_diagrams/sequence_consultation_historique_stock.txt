@@ -1,72 +1,72 @@
-**Diagramme de Séquence : Consultation de l'Historique des Mouvements de Stock pour un Produit**
+**Diagramme de Séquence : Consultation du Rapport des Mouvements de Stock**
 
 **Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
 
 **Composants :**
 *   Navigateur Web
 *   Routeur (`public/index.php`)
-*   `StockController.php`
-*   `Product.php` (Modèle Produit - pour récupérer les détails du produit)
-*   `StockMovement.php` (Modèle Mouvement de Stock)
+*   `ReportController.php`
+*   `ProductModel.php`
+*   `StockMovementModel.php`
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)
-*   Vue (`stock/history.php`, `layouts/main.php`)
+*   Vue (`reports/stock_movements_report.php`, `layouts/main.php`)
 
 **Séquence :**
 
 1.  **Utilisateur -> Navigateur Web :**
-    *   Clique sur "Historique" pour un produit spécifique (ex: depuis la liste des produits ou la page de détail d'un produit).
-    *   Le navigateur envoie une requête GET (ex: `index.php?url=stock/history/456` où 456 est `$productId`).
-    *   L'utilisateur peut aussi appliquer des filtres de date via le formulaire sur la page d'historique, ce qui soumettrait à nouveau une requête GET avec des paramètres de date.
+    *   Accède à la page du rapport des mouvements de stock (ex: via un lien dans le menu "Rapports").
+    *   Le navigateur envoie une requête GET (ex: `index.php?url=report/stock_movements_report`).
+    *   L'utilisateur peut optionnellement soumettre le formulaire de filtres (date de début, date de fin, produit, type de mouvement), ce qui renvoie une requête GET avec ces paramètres.
 
 2.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le serveur reçoit la requête GET.
-    *   Le Routeur analyse l'URL et détermine que `StockController` et sa méthode `history($productId)` doivent être appelés.
+    *   Le Routeur analyse l'URL et détermine que `ReportController` et sa méthode `stock_movements_report()` doivent être appelés.
 
-3.  **Routeur -> `StockController::history($productId)` :**
-    *   La méthode `history()` est exécutée.
-    *   `StockController` appelle `ProductModel->getById($productId)` pour obtenir les informations du produit.
-        *   Si le produit n'est pas trouvé, affiche une vue d'erreur 404.
-    *   Récupère les filtres de date (`start_date`, `end_date`) depuis `$_GET` s'ils existent.
-    *   `StockController` appelle `StockMovementModel->getMovementsByProduct($productId, $dateRange)`.
-    *   `StockController` appelle `StockMovementModel->getCurrentStockCalculated($productId)` pour obtenir le stock calculé (à des fins de comparaison ou d'affichage).
+3.  **Routeur -> `ReportController::stock_movements_report()` :**
+    *   La méthode `stock_movements_report()` est exécutée.
+    *   `ReportController` charge `ProductModel` et `StockMovementModel`.
+    *   Appelle `ProductModel->getAll()` pour peupler le filtre de sélection de produit.
+    *   Récupère `StockMovementModel->allowedTypes` pour peupler le filtre de type de mouvement.
+    *   Récupère les paramètres de filtre (`start_date`, `end_date`, `product_id`, `movement_type`) depuis `$_GET`, en appliquant des valeurs par défaut si absents.
+    *   Appelle `StockMovementModel->getDetailedStockMovements($filters_array)` avec les filtres validés.
 
-4.  **`StockController` -> `ProductModel::getById($productId)` :**
-    *   Exécute une requête SELECT sur la table `products`.
-    *   Retourne les données du produit.
+4.  **`ReportController` -> `ProductModel::getAll()` :**
+    *   Exécute une requête SELECT sur la table `products` (avec jointures pour catégorie et unité de base si `getAll` est la version enrichie).
+    *   Retourne la liste des produits.
 
-5.  **`StockController` -> `StockMovementModel::getMovementsByProduct($productId, $dateRange)` :**
-    *   Le modèle `StockMovement.php` construit une requête SQL SELECT pour la table `stock_movements`.
-    *   La requête filtre par `product_id` et optionnellement par `movement_date` (si `$dateRange` est fourni).
-    *   Elle joint la table `products` pour obtenir le nom du produit (déjà fait par `ProductModel`, mais peut être inclus ici pour des infos complètes sur le mouvement).
+5.  **`ReportController` -> `StockMovementModel::getDetailedStockMovements($filters_array)` :**
+    *   Le modèle `StockMovement.php` construit une requête SQL SELECT complexe :
+        *   Joint `stock_movements` avec `products` (pour le nom du produit et son `base_unit_id`).
+        *   Joint `units` deux fois : une fois pour l'unité de base du produit (`u_base`), et une fois (LEFT JOIN) pour l'unité d'origine du mouvement (`u_orig` sur `sm.original_unit_id`).
+        *   Construit dynamiquement la clause `WHERE` basée sur les filtres fournis (dates, produit, type de mouvement).
     *   Appelle `Database->select()` pour exécuter la requête.
-    *   Retourne un tableau des mouvements de stock.
+    *   Retourne un tableau des mouvements de stock détaillés, incluant `product_name`, `base_unit_symbol`, `original_quantity`, `original_unit_symbol`, etc.
 
-6.  **`StockController` -> `StockMovementModel::getCurrentStockCalculated($productId)` :**
-    *   Le modèle `StockMovement.php` exécute une requête SQL qui somme les quantités des mouvements par type pour le produit donné.
-    *   Calcule le stock actuel basé sur ces sommes.
-    *   Retourne le stock calculé.
-
-7.  **Modèles -> `Database` (plusieurs appels) :**
+6.  **Modèles -> `Database` (plusieurs appels) :**
     *   Exécution des requêtes SELECT.
 
-8.  **`Database` -> Modèles :**
+7.  **`Database` -> Modèles :**
     *   Les résultats des requêtes sont retournés aux modèles respectifs.
 
-9.  **Modèles -> `StockController` :**
-    *   Les données du produit, la liste des mouvements, et le stock calculé sont retournés au contrôleur.
+8.  **Modèles -> `ReportController` :**
+    *   La liste des produits (pour les filtres) et la liste des mouvements de stock détaillés sont retournées au contrôleur.
 
-10. **`StockController::history($productId)` (suite) :**
-    *   `StockController` stocke les données récupérées.
-    *   Appelle `renderView('stock/history', $data)` avec le produit, les mouvements, le stock calculé, les filtres de date, et le titre de la page.
+9.  **`ReportController::stock_movements_report()` (suite) :**
+    *   `ReportController` stocke les données récupérées.
+    *   Appelle `renderView('reports/stock_movements_report', $data)` avec les mouvements, les listes pour les filtres, les filtres courants, et le titre de la page.
 
-11. **`StockController` -> Vue (`stock/history.php`, `layouts/main.php`) :**
-    *   La vue `stock/history.php` est rendue.
-    *   Elle affiche les détails du produit, le stock mis en cache et le stock calculé.
-    *   Elle affiche un formulaire pour filtrer par date.
-    *   Elle itère sur le tableau des mouvements et les affiche dans un tableau HTML, indiquant le type, la quantité, la date, et les documents liés.
+10. **`ReportController` -> Vue (`reports/stock_movements_report.php`, `layouts/main.php`) :**
+    *   La vue `reports/stock_movements_report.php` est rendue.
+    *   Elle affiche le formulaire de filtres, pré-rempli avec les filtres courants.
+    *   Elle itère sur le tableau des mouvements et les affiche dans un tableau HTML.
+    *   Pour chaque mouvement, elle affiche :
+        *   Date, Nom du Produit, Type de Mouvement (traduit).
+        *   Description (basée sur `related_document_type`, `related_document_id`, et `notes`).
+        *   Quantité en Unité d'Origine (si `original_unit_id` est différent de l'unité de base et `original_quantity` est non null).
+        *   Quantité en Unité de Base du Produit (le champ `quantity` du mouvement).
 
-12. **Navigateur Web :**
-    *   Affiche la page de l'historique des mouvements de stock pour le produit sélectionné.
+11. **Navigateur Web :**
+    *   Affiche la page du rapport des mouvements de stock.
 
 **Fin de la Séquence.**

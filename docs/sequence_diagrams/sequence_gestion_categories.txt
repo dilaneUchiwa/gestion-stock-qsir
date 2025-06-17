@@ -1,0 +1,88 @@
+**Diagramme de Séquence : Gestion des Catégories (Produit, Client, ou Fournisseur)**
+
+**Acteurs :** Utilisateur, Navigateur Web, Serveur Web (PHP)
+
+**Composants :**
+*   Navigateur Web
+*   Routeur (`public/index.php`)
+*   Contrôleur de Catégorie Spécifique (ex: `ProductCategoriesController.php`, `ClientCategoriesController.php`, `SupplierCategoriesController.php`) - Ci-après dénommé `EntityTypeCategoriesController.php`
+*   Modèle de Catégorie Spécifique (ex: `ProductCategoryModel.php`, `ClientCategoryModel.php`, `SupplierCategoryModel.php`) - Ci-après dénommé `EntityTypeCategoryModel.php`
+*   `Database.php` (Classe Core)
+*   Base de Données (PostgreSQL)
+*   Vues CRUD pour les catégories (ex: `product_categories/index.php`, `client_categories/create.php`, etc.)
+*   Layout principal (`layouts/main.php`)
+
+**Séquences Communes :**
+
+**A. Affichage de la Liste des Catégories (Index)**
+1.  **Utilisateur -> Navigateur Web :** Accède à la liste des catégories (ex: `index.php?url=entitytypecategories/index`).
+2.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::index()`.
+3.  **Routeur -> `EntityTypeCategoriesController::index()` :**
+    *   Appelle `EntityTypeCategoryModel->getAll()`.
+4.  **`EntityTypeCategoriesController` -> `EntityTypeCategoryModel::getAll()` :**
+    *   Construit et exécute une requête SELECT pour récupérer toutes les catégories de la table correspondante.
+    *   Retourne un tableau de catégories.
+5.  **`EntityTypeCategoryModel` -> `EntityTypeCategoriesController` :** Retourne les catégories.
+6.  **`EntityTypeCategoriesController::index()` (suite) :**
+    *   Appelle `renderView('entitytype_categories/index', $data)` avec les catégories et le titre.
+7.  **Navigateur Web :** Affiche la liste des catégories avec options pour créer, modifier, supprimer.
+
+**B. Création d'une Nouvelle Catégorie (Create & Store)**
+1.  **Utilisateur -> Navigateur Web :** Clique sur "Créer une nouvelle catégorie" depuis la page d'index. Requête GET vers `index.php?url=entitytypecategories/create`.
+2.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::create()`.
+3.  **Routeur -> `EntityTypeCategoriesController::create()` :**
+    *   Appelle `renderView('entitytype_categories/create', $data)` avec un titre et des tableaux vides pour les données/erreurs.
+4.  **Navigateur Web :** Affiche le formulaire de création de catégorie.
+5.  **Utilisateur -> Navigateur Web :** Remplit le formulaire (nom, description) et soumet (POST vers `index.php?url=entitytypecategories/store`).
+6.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::store()`.
+7.  **Routeur -> `EntityTypeCategoriesController::store()` :**
+    *   Récupère les données `$_POST`.
+    *   Valide les données (ex: nom requis).
+    *   Si validation échoue : Recharge la vue `create` avec erreurs et données.
+    *   Si validation réussit : Appelle `EntityTypeCategoryModel->create($data)`.
+8.  **`EntityTypeCategoriesController` -> `EntityTypeCategoryModel::create($data)` :**
+    *   Construit et exécute une requête INSERT.
+    *   Retourne l'ID de la nouvelle catégorie ou `false`.
+9.  **`EntityTypeCategoryModel` -> `EntityTypeCategoriesController` :** Retourne le résultat.
+10. **`EntityTypeCategoriesController::store()` (suite) :**
+    *   Si succès : Redirige vers `entitytypecategories/index` avec message de succès.
+    *   Si échec : Recharge la vue `create` avec une erreur générale.
+
+**C. Modification d'une Catégorie Existante (Edit & Update)**
+1.  **Utilisateur -> Navigateur Web :** Clique sur "Modifier" pour une catégorie. Requête GET vers `index.php?url=entitytypecategories/edit/{id}`.
+2.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::edit($id)`.
+3.  **Routeur -> `EntityTypeCategoriesController::edit($id)` :**
+    *   Appelle `EntityTypeCategoryModel->getById($id)`.
+    *   Si non trouvée, affiche une erreur 404.
+    *   Sinon, appelle `renderView('entitytype_categories/edit', $data)` avec la catégorie et le titre.
+4.  **Navigateur Web :** Affiche le formulaire de modification pré-rempli.
+5.  **Utilisateur -> Navigateur Web :** Modifie les informations et soumet (POST vers `index.php?url=entitytypecategories/update/{id}`).
+6.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::update($id)`.
+7.  **Routeur -> `EntityTypeCategoriesController::update($id)` :**
+    *   Vérifie que la catégorie existe (`EntityTypeCategoryModel->getById($id)`).
+    *   Récupère les données `$_POST`. Valide (nom requis).
+    *   Si validation échoue : Recharge la vue `edit` avec erreurs et données.
+    *   Si validation réussit : Appelle `EntityTypeCategoryModel->update($id, $data)`.
+8.  **`EntityTypeCategoriesController` -> `EntityTypeCategoryModel::update($id, $data)` :**
+    *   Construit et exécute une requête UPDATE.
+    *   Retourne le nombre de lignes affectées ou `false`.
+9.  **`EntityTypeCategoryModel` -> `EntityTypeCategoriesController` :** Retourne le résultat.
+10. **`EntityTypeCategoriesController::update($id)` (suite) :**
+    *   Si succès : Redirige vers `entitytypecategories/index` avec message de succès.
+    *   Si échec : Recharge la vue `edit` avec une erreur générale.
+
+**D. Suppression d'une Catégorie (Destroy)**
+1.  **Utilisateur -> Navigateur Web :** Clique sur "Supprimer" pour une catégorie (souvent via un formulaire POST pour la sécurité, ou un GET avec confirmation JS). Requête vers `index.php?url=entitytypecategories/destroy/{id}`.
+2.  **Navigateur Web -> Serveur Web (Routeur) :** Le Routeur appelle `EntityTypeCategoriesController::destroy($id)`.
+3.  **Routeur -> `EntityTypeCategoriesController::destroy($id)` :**
+    *   Vérifie que la catégorie existe (`EntityTypeCategoryModel->getById($id)`).
+    *   Appelle `EntityTypeCategoryModel->delete($id)`.
+        *   La base de données gère `ON DELETE SET NULL` pour les entités associées (produits, clients, fournisseurs).
+4.  **`EntityTypeCategoriesController` -> `EntityTypeCategoryModel::delete($id)` :**
+    *   Construit et exécute une requête DELETE.
+    *   Retourne le nombre de lignes affectées ou `false`.
+5.  **`EntityTypeCategoryModel` -> `EntityTypeCategoriesController` :** Retourne le résultat.
+6.  **`EntityTypeCategoriesController::destroy($id)` (suite) :**
+    *   Redirige vers `entitytypecategories/index` avec message de succès ou d'échec.
+
+**Fin de la Séquence.**

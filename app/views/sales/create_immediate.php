@@ -51,6 +51,7 @@
             <thead>
                 <tr>
                     <th>Produit *</th>
+                    <th>Unité *</th>
                     <th>Quantité *</th>
                     <th>Prix unitaire *</th>
                     <th>Sous-total</th>
@@ -59,8 +60,10 @@
             </thead>
             <tbody id="saleItemsTbody">
                 <?php
-                $itemsToDisplay = $formItemsData ?? [['product_id' => '', 'quantity_sold' => 1, 'unit_price' => '0.00']];
+                $itemsToDisplay = $formItemsData ?? [['product_id' => '', 'unit_id' => '', 'quantity_sold' => 1, 'unit_price' => '0.00']];
                 foreach ($itemsToDisplay as $idx => $item):
+                    $currentProductId = $item['product_id'] ?? null;
+                    $currentUnitId = $item['unit_id'] ?? null;
                 ?>
                 <tr class="item-row">
                     <td>
@@ -69,24 +72,54 @@
                             <?php foreach ($products as $product): ?>
                                 <option value="<?php echo htmlspecialchars($product['id']); ?>"
                                         data-price="<?php echo htmlspecialchars($product['selling_price'] ?? '0.00'); ?>"
-                                        data-stock="<?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>"
-                                        <?php echo (isset($item['product_id']) && $item['product_id'] == $product['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($product['name']); ?> (Stock : <?php echo htmlspecialchars($product['quantity_in_stock'] ?? 0); ?>)
+                                        data-stock-base="<?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>"
+                                        data-base-unit-id="<?php echo htmlspecialchars($product['base_unit_id']); ?>"
+                                        data-base-unit-symbol="<?php echo htmlspecialchars($product['base_unit_symbol'] ?? ''); ?>"
+                                        <?php echo ($currentProductId == $product['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($product['name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <small class="stock-display" style="display: block; margin-top: 5px;">Stock: -</small>
                     </td>
-                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_sold]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_sold'] ?? '1'); ?>" min="1" required data-index="<?php echo $idx; ?>"></td>
+                    <td>
+                        <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>" data-selected-unit-id="<?php echo htmlspecialchars($currentUnitId); ?>">
+                            <option value="">Sélectionnez produit</option>
+                            <?php /* JS populates this */ ?>
+                        </select>
+                    </td>
+                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_sold]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_sold'] ?? '1'); ?>" min="0.001" step="any" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
-                    <td><button type="button" class="remove-item-btn button-danger">Retirer</button></td>
+                    <td><button type="button" class="remove-item-btn button-danger btn-sm">Retirer</button></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
         <button type="button" id="addItemBtn" class="button">Ajouter un article</button>
-        <div class="form-group" style="text-align:right; margin-top:10px;">
-            <strong>Montant total de la vente : <span id="totalAmountDisplay">0.00</span></strong>
+
+        <div style="margin-top: 20px; padding-top:10px; border-top: 1px solid #ccc;">
+            <div class="form-group">
+                <label for="grossTotalDisplayLabel" style="font-weight:bold;">Sous-Total Brut des Articles :</label>
+                <span id="grossTotalDisplay" style="font-weight:bold;">0.00</span> €
+            </div>
+            <div class="form-group">
+                <label for="discount_amount">Montant de la Réduction :</label>
+                <input type="number" name="discount_amount" id="discount_amount" value="<?php echo htmlspecialchars($data['discount_amount'] ?? '0.00'); ?>" min="0" step="0.01" style="width:100px; text-align:right;"> €
+            </div>
+            <div class="form-group">
+                <label for="netTotalDisplayLabel" style="font-weight:bold; color: #28a745;">Total Net à Payer :</label>
+                <span id="netTotalDisplay" style="font-weight:bold; color: #28a745; font-size: 1.2em;">0.00</span> €
+            </div>
+             <hr>
+            <div class="form-group">
+                <label for="amount_tendered">Montant Versé par le Client * :</label>
+                <input type="number" name="amount_tendered" id="amount_tendered" value="<?php echo htmlspecialchars($data['amount_tendered'] ?? ''); ?>" min="0" step="0.01" required style="width:100px; text-align:right;"> €
+            </div>
+            <div class="form-group">
+                <label for="changeDueDisplayLabel" style="font-weight:bold;">Monnaie à Rendre :</label>
+                <span id="changeDueDisplay" style="font-weight:bold; font-size: 1.1em;">0.00</span> €
+            </div>
         </div>
     </fieldset>
 
@@ -96,7 +129,7 @@
     </div>
 
     <div class="form-group" style="margin-top: 20px;">
-        <button type="submit" class="button">Enregistrer la vente (payée)</button>
+        <button type="submit" class="button button-success">Enregistrer la vente (payée)</button>
         <a href="index.php?url=sale/index" class="button-info">Annuler</a>
     </div>
 </form>
@@ -105,7 +138,17 @@
 document.addEventListener('DOMContentLoaded', function () {
     const itemsTbody = document.getElementById('saleItemsTbody');
     const addItemBtn = document.getElementById('addItemBtn');
-    const productsData = <?php echo json_encode(array_map(function($p){ return ['id'=>$p['id'], 'name'=>$p['name'], 'selling_price'=>$p['selling_price'] ?? '0.00', 'quantity_in_stock'=>$p['quantity_in_stock'] ?? 0]; }, $products)); ?>;
+    // productsData already includes base_unit_id, base_unit_symbol, quantity_in_stock (base)
+    const productsData = <?php echo json_encode($products); ?>;
+    const productUnitsMap = <?php echo json_encode($productUnitsMap ?? []); ?>;
+
+    const discountInput = document.getElementById('discount_amount');
+    const amountTenderedInput = document.getElementById('amount_tendered');
+    const grossTotalDisplaySpan = document.getElementById('grossTotalDisplay');
+    const netTotalDisplaySpan = document.getElementById('netTotalDisplay');
+    const changeDueDisplaySpan = document.getElementById('changeDueDisplay');
+    // const totalAmountDisplaySpan = document.getElementById('totalAmountDisplay'); // This was the old total, now netTotalDisplay is primary
+
     let itemIndex = itemsTbody.querySelectorAll('.item-row').length;
 
     function calculateRowSubtotal(row) {
@@ -116,53 +159,156 @@ document.addEventListener('DOMContentLoaded', function () {
         return subtotal;
     }
 
-    function calculateTotalAmount() {
-        let total = 0;
+    function calculateAllTotals() {
+        let grossTotal = 0;
         itemsTbody.querySelectorAll('.item-row').forEach(row => {
-            total += calculateRowSubtotal(row);
+            grossTotal += calculateRowSubtotal(row); // Ensure row subtotal is calculated first
         });
-        document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
+        grossTotalDisplaySpan.textContent = grossTotal.toFixed(2);
+
+        const discount = parseFloat(discountInput.value) || 0;
+        if (discount < 0) { // Prevent negative discount in display calculation
+            discountInput.value = '0.00';
+        }
+
+        let netTotal = grossTotal - discount;
+        if (netTotal < 0) netTotal = 0; // Amount to pay cannot be negative
+        netTotalDisplaySpan.textContent = netTotal.toFixed(2);
+        // totalAmountDisplaySpan.textContent = netTotal.toFixed(2); // Update old total if still used, or remove it
+
+        const amountTendered = parseFloat(amountTenderedInput.value) || 0;
+        let changeDue = amountTendered - netTotal;
+
+        if (amountTendered < netTotal && amountTendered > 0) { // only show as negative if some amount is tendered but not enough
+             changeDueDisplaySpan.innerHTML = `<span style="color:red;">Montant insuffisant: ${changeDue.toFixed(2)}</span>`;
+        } else if (amountTendered >= netTotal) {
+             changeDueDisplaySpan.innerHTML = `<span style="color:green;">${changeDue.toFixed(2)}</span>`;
+        } else { // amount tendered is 0 or invalid
+            changeDueDisplaySpan.textContent = '0.00';
+        }
     }
+
+    // Initial calculation on page load
+    calculateAllTotals();
+
+    discountInput.addEventListener('input', calculateAllTotals);
+    amountTenderedInput.addEventListener('input', calculateAllTotals);
+
 
     function addRowEventListeners(row) {
         const quantityInput = row.querySelector('.quantity-input');
         const productSelect = row.querySelector('.product-select');
+        const unitSelect = row.querySelector('.unit-select');
+        const stockDisplay = row.querySelector('.stock-display');
+        const priceInput = row.querySelector('.price-input');
 
-        quantityInput.addEventListener('input', () => calculateTotalAmount());
-        row.querySelector('.price-input').addEventListener('input', () => calculateTotalAmount());
+        function updateStockDisplayAndMaxQty() {
+            const selectedProductId = productSelect.value;
+            const selectedUnitId = unitSelect.value;
+            const product = productsData.find(p => p.id == selectedProductId);
+
+            if (product && selectedUnitId) {
+                const stockBase = parseFloat(product.quantity_in_stock);
+                const unitsForProd = productUnitsMap[selectedProductId] || [];
+                const selectedUnitInfo = unitsForProd.find(u => u.unit_id == selectedUnitId);
+
+                if (selectedUnitInfo && selectedUnitInfo.conversion_factor_to_base_unit && parseFloat(selectedUnitInfo.conversion_factor_to_base_unit) > 0) {
+                    const factor = parseFloat(selectedUnitInfo.conversion_factor_to_base_unit);
+                    const stockInSelectedUnit = stockBase / factor;
+                    stockDisplay.textContent = `Stock: ${stockInSelectedUnit.toFixed(3)} ${selectedUnitInfo.symbol}`;
+                    quantityInput.max = stockInSelectedUnit.toFixed(3); // Allow fractional quantities
+                     if (parseFloat(quantityInput.value) > stockInSelectedUnit) {
+                        // quantityInput.value = stockInSelectedUnit.toFixed(3); // Adjust if current value exceeds new max
+                    }
+                    if (stockInSelectedUnit <= 0) {
+                         // alert(`Le produit "${product.name}" est en rupture de stock dans l'unité "${selectedUnitInfo.name}".`);
+                    }
+                } else {
+                    stockDisplay.textContent = `Stock: N/A (err conv.)`;
+                    quantityInput.removeAttribute('max');
+                }
+            } else {
+                stockDisplay.textContent = 'Stock: -';
+                quantityInput.removeAttribute('max');
+            }
+        }
+
+        quantityInput.addEventListener('input', () => {
+            updateStockDisplayAndMaxQty();
+            calculateAllTotals(); // Use new central calculation
+        });
+        priceInput.addEventListener('input', () => calculateAllTotals()); // Use new central calculation
 
         productSelect.addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
             const price = selectedOption.dataset.price || '0.00';
-            const stock = parseInt(selectedOption.dataset.stock || '0');
-
-            const priceInput = this.closest('.item-row').querySelector('.price-input');
             priceInput.value = price;
 
-            // Set max for quantity input based on stock
-            quantityInput.max = stock;
-            if (parseInt(quantityInput.value) > stock) {
-                quantityInput.value = stock; // Adjust if current value exceeds new max
-                if(stock === 0) quantityInput.value = 0; // or 1 if min is 1 and stock is 0
-            }
-            if (stock === 0 && quantityInput.value === "0"){
-                 alert(`Le produit "${selectedOption.text.split(' (Stock:')[0]}" est en rupture de stock.`);
-            }
+            const productId = this.value;
+            const productEntry = productsData.find(p => p.id == productId);
+            const unitsForProduct = productUnitsMap[productId] || [];
 
-            calculateTotalAmount();
+            unitSelect.innerHTML = '<option value="">Choisir unité</option>';
+            if (productEntry) {
+                if (unitsForProduct.length > 0) {
+                    unitsForProduct.forEach(pu => {
+                        const option = document.createElement('option');
+                        option.value = pu.unit_id;
+                        option.textContent = `${pu.name} (${pu.symbol})`;
+                        option.dataset.conversionFactor = pu.conversion_factor_to_base_unit;
+                        if (productEntry.base_unit_id == pu.unit_id) {
+                            option.selected = true;
+                        }
+                        unitSelect.appendChild(option);
+                    });
+                } else if (productEntry.base_unit_id && productEntry.base_unit_name) {
+                     const option = document.createElement('option');
+                     option.value = productEntry.base_unit_id;
+                     option.textContent = productEntry.base_unit_name;
+                     option.dataset.conversionFactor = "1.00000";
+                     option.selected = true;
+                     unitSelect.appendChild(option);
+                } else {
+                     unitSelect.innerHTML = '<option value="">Pas d\'unités</option>';
+                }
+            }
+            unitSelect.dispatchEvent(new Event('change'));
+            calculateAllTotals(); // Use new central calculation
         });
+
+        unitSelect.addEventListener('change', function() {
+            updateStockDisplayAndMaxQty();
+            // Price logic might need update if price is per base_unit and unit selection changes price
+        });
+
         row.querySelector('.remove-item-btn').addEventListener('click', function() {
             if (itemsTbody.querySelectorAll('.item-row').length > 1) {
                 this.closest('.item-row').remove();
-                calculateTotalAmount();
-                updateItemIndices();
             } else {
-                alert('Une vente doit contenir au moins un article.');
+                productSelect.value = "";
+                unitSelect.innerHTML = '<option value="">Sélectionnez produit</option>';
+                quantityInput.value = "1";
+                priceInput.value = "0.00";
+                stockDisplay.textContent = "Stock: -";
             }
+            calculateAllTotals(); // Use new central calculation
+            updateItemIndices();
         });
-        // Trigger change on load for pre-filled rows to set price and max stock
+
+        // Initial population for existing rows (e.g., form repopulation)
         if (productSelect.value) {
-            productSelect.dispatchEvent(new Event('change'));
+            productSelect.dispatchEvent(new Event('change')); // Populate units
+            // If unit was also pre-selected (e.g. from $formItemsData), set it and trigger its change
+            const preSelectedUnitId = unitSelect.dataset.selectedUnitId;
+            if(preSelectedUnitId){
+                // Wait for unitSelect to be populated by productSelect change event
+                setTimeout(() => {
+                    unitSelect.value = preSelectedUnitId;
+                    unitSelect.dispatchEvent(new Event('change'));
+                }, 0);
+            }
+        } else {
+             stockDisplay.textContent = "Stock: -"; // Default for empty row
         }
     }
 
@@ -170,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let currentIdx = 0;
         itemsTbody.querySelectorAll('.item-row').forEach(row => {
             row.querySelector('.product-select').name = `items[${currentIdx}][product_id]`;
+            row.querySelector('.unit-select').name = `items[${currentIdx}][unit_id]`;
             row.querySelector('.quantity-input').name = `items[${currentIdx}][quantity_sold]`;
             row.querySelector('.price-input').name = `items[${currentIdx}][unit_price]`;
             currentIdx++;
@@ -180,27 +327,36 @@ document.addEventListener('DOMContentLoaded', function () {
     addItemBtn.addEventListener('click', function() {
         const newRow = document.createElement('tr');
         newRow.classList.add('item-row');
+        let productOptionsHTML = productsData.map(p =>
+            `<option value="${p.id}" data-price="${p.selling_price}" data-stock-base="${p.quantity_in_stock}" data-base-unit-id="${p.base_unit_id}" data-base-unit-symbol="${p.base_unit_symbol}">${p.name}</option>`
+        ).join('');
+
         newRow.innerHTML = `
             <td>
                 <select name="items[${itemIndex}][product_id]" class="product-select" required data-index="${itemIndex}">
                     <option value="">Sélectionner un produit</option>
-                    ${productsData.map(p => `<option value="${p.id}" data-price="${p.selling_price}" data-stock="${p.quantity_in_stock}">${p.name} (Stock : ${p.quantity_in_stock})</option>`).join('')}
+                    ${productOptionsHTML}
+                </select>
+                <small class="stock-display" style="display: block; margin-top: 5px;">Stock: -</small>
+            </td>
+            <td>
+                <select name="items[${itemIndex}][unit_id]" class="unit-select" required data-index="${itemIndex}">
+                    <option value="">Sélectionnez produit</option>
                 </select>
             </td>
-            <td><input type="number" name="items[${itemIndex}][quantity_sold]" class="quantity-input" value="1" min="1" required data-index="${itemIndex}"></td>
+            <td><input type="number" name="items[${itemIndex}][quantity_sold]" class="quantity-input" value="1" min="0.001" step="any" required data-index="${itemIndex}"></td>
             <td><input type="number" name="items[${itemIndex}][unit_price]" class="price-input" value="0.00" min="0" step="0.01" required data-index="${itemIndex}"></td>
             <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
-            <td><button type="button" class="remove-item-btn button-danger">Retirer</button></td>
+            <td><button type="button" class="remove-item-btn button-danger btn-sm">Retirer</button></td>
         `;
         itemsTbody.appendChild(newRow);
         addRowEventListeners(newRow);
         itemIndex++;
-        // calculateTotalAmount(); // Not needed here as new rows are empty initially
     });
 
     itemsTbody.querySelectorAll('.item-row').forEach(row => {
         addRowEventListeners(row);
     });
-    calculateTotalAmount(); // Initial calculation for pre-filled or error-repopulated forms
+    // calculateAllTotals(); // Already called at the end of DOMContentLoaded
 });
 </script>

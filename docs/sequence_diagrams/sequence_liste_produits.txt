@@ -6,7 +6,9 @@
 *   Navigateur Web
 *   Routeur (`public/index.php`)
 *   `ProductsController.php`
-*   `Product.php` (Modèle)
+*   `ProductModel.php` (Nom corrigé)
+*   `UnitModel.php` (implicitement utilisé par `ProductModel`)
+*   `ProductCategoryModel.php` (implicitement utilisé par `ProductModel`)
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)
 *   Vue (`products/index.php`, `layouts/main.php`)
@@ -19,16 +21,16 @@
 
 2.  **Navigateur Web -> Serveur Web (Routeur) :**
     *   Le serveur reçoit la requête GET.
-    *   Le Routeur (`public/index.php`) analyse l'URL.
-    *   Il détermine que `ProductsController` et sa méthode `index()` doivent être appelés.
+    *   Le Routeur (`public/index.php`) analyse l'URL et détermine que `ProductsController` et sa méthode `index()` doivent être appelés.
 
 3.  **Routeur -> `ProductsController::index()` :**
-    *   Le contrôleur est instancié.
+    *   Le contrôleur est instancié (charge `ProductModel`).
     *   La méthode `index()` est exécutée.
     *   `ProductsController` appelle `ProductModel->getAll()`.
 
 4.  **`ProductsController` -> `ProductModel::getAll()` :**
-    *   Le modèle `Product.php` construit une requête SQL SELECT pour récupérer tous les produits de la table `products`.
+    *   Le modèle `ProductModel.php` construit une requête SQL SELECT pour récupérer tous les produits.
+    *   La requête inclut des `LEFT JOIN` vers `product_categories` (pour `category_name`) et `units` (pour `base_unit_name`, `base_unit_symbol`).
     *   Il interagit avec `Database.php` pour exécuter la requête.
 
 5.  **`ProductModel` -> `Database::select($sql, $params)` :**
@@ -42,12 +44,12 @@
     *   Le modèle retourne le tableau des produits au contrôleur.
 
 8.  **`ProductsController::index()` (suite) :**
-    *   `ProductsController` stocke les produits récupérés dans une variable (ex: `$products`).
-    *   `ProductsController` appelle `renderView('products/index', ['products' => $products, 'title' => 'Product List'])`.
+    *   `ProductsController` stocke les produits récupérés (qui incluent maintenant `category_name`, `base_unit_name`, `base_unit_symbol`).
+    *   `ProductsController` appelle `renderView('products/index', ['products' => $products, 'title' => 'Liste des Produits'])`.
 
 9.  **`ProductsController` -> Vue (`products/index.php`, `layouts/main.php`) :**
-    *   La vue `products/index.php` est rendue, insérée dans le layout `main.php`.
-    *   La vue itère sur le tableau `$products` et affiche chaque produit dans un tableau HTML.
+    *   La vue `products/index.php` est rendue.
+    *   Elle itère sur le tableau `$products` et affiche chaque produit, y compris sa catégorie et son unité de base.
     *   Des liens pour "Voir", "Modifier", "Supprimer" sont générés pour chaque produit.
 
 10. **Navigateur Web :**

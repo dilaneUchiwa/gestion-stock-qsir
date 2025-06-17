@@ -68,6 +68,7 @@
             <thead>
                 <tr>
                     <th>Produit *</th>
+                    <th>Unité *</th>
                     <th>Quantité *</th>
                     <th>Prix unitaire *</th>
                     <th>Sous-total</th>
@@ -76,11 +77,15 @@
             </thead>
             <tbody id="poItemsTbody">
                 <?php
-                // Use $purchaseOrder['items'] which should be populated by getByIdWithItems
-                $itemsToDisplay = $purchaseOrder['items'] ?? [['product_id' => '', 'quantity_ordered' => 1, 'unit_price' => '0.00']];
-                if (empty($itemsToDisplay)) $itemsToDisplay = [['product_id' => '', 'quantity_ordered' => 1, 'unit_price' => '0.00']]; // Ensure at least one row for JS
+                // $itemsToDisplay should come from $purchaseOrder['items'] if available, or $itemsData_form if repopulating after error
+                $itemsToDisplay = $itemsData_form ?? ($purchaseOrder['items'] ?? []);
+                if (empty($itemsToDisplay)) { // Ensure at least one row for JS if PO was empty or no items submitted
+                    $itemsToDisplay = [['product_id' => '', 'unit_id' => '', 'quantity_ordered' => 1, 'unit_price' => '0.00']];
+                }
 
                 foreach ($itemsToDisplay as $idx => $item):
+                    $currentProductId = $item['product_id'] ?? null;
+                    $currentUnitId = $item['unit_id'] ?? null; // This should be populated from model now
                 ?>
                 <tr class="item-row">
                     <td>
@@ -89,15 +94,25 @@
                             <?php foreach ($products as $product): ?>
                                 <option value="<?php echo htmlspecialchars($product['id']); ?>"
                                         data-price="<?php echo htmlspecialchars($product['purchase_price'] ?? '0.00'); ?>"
-                                        <?php echo (isset($item['product_id']) && $item['product_id'] == $product['id']) ? 'selected' : ''; ?>>
+                                        data-base-unit-id="<?php echo htmlspecialchars($product['base_unit_id']); ?>"
+                                        data-base-unit-name="<?php echo htmlspecialchars(($product['base_unit_name'] ?? 'N/A') . ' (' . ($product['base_unit_symbol'] ?? '') . ')'); ?>"
+                                        <?php echo ($currentProductId == $product['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($product['name']); ?> (Stock: <?php echo htmlspecialchars($product['quantity_in_stock'] ?? 0); ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </td>
+                    <td>
+                        <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>" data-selected-unit-id="<?php echo htmlspecialchars($currentUnitId); ?>">
+                            <option value="">Sélectionnez d'abord un produit</option>
+                            <?php /* Options will be populated by JavaScript based on product selection */ ?>
+                            <?php /* For repopulation: if $currentProductId and $currentUnitId exist, JS will handle selection. */ ?>
+                            <?php /* If $currentProductId is set, JS's 'change' event on product select will populate this. */?>
+                        </select>
+                    </td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][quantity_ordered]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_ordered'] ?? '1'); ?>" min="1" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
-                    <td><input type="text" class="subtotal-display" value="<?php echo htmlspecialchars(isset($item['sub_total']) ? number_format($item['sub_total'], 2) : '0.00'); ?>" readonly tabindex="-1"></td>
+                    <td><input type="text" class="subtotal-display" value="<?php echo htmlspecialchars(isset($item['sub_total']) ? number_format((float)$item['sub_total'], 2, '.', '') : '0.00'); ?>" readonly tabindex="-1"></td>
                     <td><button type="button" class="remove-item-btn button-danger">Supprimer</button></td>
                 </tr>
                 <?php endforeach; ?>
@@ -116,11 +131,24 @@
 </form>
 
 <script>
-// Same JavaScript as in create.php for dynamic item rows
+// Same JavaScript as in create.php for dynamic item rows, with minor adjustments for edit
 document.addEventListener('DOMContentLoaded', function () {
     const itemsTbody = document.getElementById('poItemsTbody');
     const addItemBtn = document.getElementById('addItemBtn');
-    const productsData = <?php echo json_encode(array_map(function($p){ return ['id'=>$p['id'], 'name'=>$p['name'], 'purchase_price'=>$p['purchase_price'] ?? '0.00', 'quantity_in_stock'=>$p['quantity_in_stock'] ?? 0]; }, $products)); ?>;
+
+    const productsData = <?php echo json_encode(array_map(function($p){
+        return [
+            'id' => $p['id'],
+            'name' => $p['name'],
+            'purchase_price' => $p['purchase_price'] ?? '0.00',
+            'quantity_in_stock' => $p['quantity_in_stock'] ?? 0,
+            'base_unit_id' => $p['base_unit_id'] ?? null,
+            'base_unit_name' => ($p['base_unit_name'] ?? 'N/A') . ' (' . ($p['base_unit_symbol'] ?? '') . ')'
+        ];
+    }, $products)); ?>;
+
+    const productUnitsMap = <?php echo json_encode($productUnitsMap ?? []); ?>;
+    // const allUnitsData = <?php echo json_encode(array_map(function($u){ return ['id'=>$u['id'], 'name'=>$u['name'], 'symbol'=>$u['symbol']]; }, $units)); ?>; // Fallback
     let itemIndex = itemsTbody.querySelectorAll('.item-row').length;
 
     function calculateRowSubtotal(row) {
@@ -142,13 +170,63 @@ document.addEventListener('DOMContentLoaded', function () {
     function addRowEventListeners(row) {
         row.querySelector('.quantity-input').addEventListener('input', () => calculateTotalAmount());
         row.querySelector('.price-input').addEventListener('input', () => calculateTotalAmount());
-        row.querySelector('.product-select').addEventListener('change', function() {
+
+        const productSelect = row.querySelector('.product-select');
+        const unitSelect = row.querySelector('.unit-select');
+        const initiallySelectedUnitId = unitSelect.dataset.selectedUnitId; // Get pre-selected unit_id from PHP
+
+        productSelect.addEventListener('change', function(event) {
             const selectedOption = this.options[this.selectedIndex];
             const price = selectedOption.dataset.price || '0.00';
-            const priceInput = this.closest('.item-row').querySelector('.price-input');
-            priceInput.value = price;
-            calculateTotalAmount();
+            const baseUnitId = selectedOption.dataset.baseUnitId;
+
+            this.closest('.item-row').querySelector('.price-input').value = price;
+
+            unitSelect.innerHTML = '';
+
+            const productId = this.value;
+            const productEntry = productsData.find(p => p.id == productId);
+            const unitsForProduct = productUnitsMap[productId] || [];
+
+            if (productEntry) {
+                if (unitsForProduct.length > 0) {
+                    unitsForProduct.forEach(pu => {
+                        const option = document.createElement('option');
+                        option.value = pu.unit_id;
+                        option.textContent = `${pu.name} (${pu.symbol})`;
+                        unitSelect.appendChild(option);
+                    });
+
+                    // Pre-selection logic
+                    if (event && event.type === 'change' && event.isTrusted) { // User changed the product
+                        unitSelect.value = productEntry.base_unit_id || unitsForProduct[0].unit_id; // Default to base or first
+                    } else if (initiallySelectedUnitId && unitsForProduct.some(u => u.unit_id == initiallySelectedUnitId)) {
+                        unitSelect.value = initiallySelectedUnitId; // Pre-select saved/form_repopulation value
+                    } else if (productEntry.base_unit_id) { // Fallback to base unit if no specific preselection matches
+                        unitSelect.value = productEntry.base_unit_id;
+                    } else if (unitsForProduct.length > 0) { // Fallback to the first available unit
+                        unitSelect.value = unitsForProduct[0].unit_id;
+                    }
+
+                } else {
+                     if (productEntry.base_unit_id && productEntry.base_unit_name) {
+                         const option = document.createElement('option');
+                         option.value = productEntry.base_unit_id;
+                         option.textContent = productEntry.base_unit_name;
+                         option.selected = true;
+                         unitSelect.appendChild(option);
+                    } else {
+                        unitSelect.innerHTML = '<option value="">Aucune unité configurée</option>';
+                    }
+                }
+            } else {
+                 unitSelect.innerHTML = '<option value="">Sélectionnez un produit</option>';
+            }
+            if (event && event.type === 'change' && event.isTrusted) {
+                 calculateTotalAmount();
+            }
         });
+
         row.querySelector('.remove-item-btn').addEventListener('click', function() {
             if (itemsTbody.querySelectorAll('.item-row').length > 1) {
                 this.closest('.item-row').remove();
@@ -164,11 +242,10 @@ document.addEventListener('DOMContentLoaded', function () {
         let currentIdx = 0;
         itemsTbody.querySelectorAll('.item-row').forEach(row => {
             row.querySelector('.product-select').name = `items[${currentIdx}][product_id]`;
-            // row.querySelector('.product-select').dataset.index = currentIdx; // Not strictly necessary for name update
+            row.querySelector('.unit-select').name = `items[${currentIdx}][unit_id]`;
             row.querySelector('.quantity-input').name = `items[${currentIdx}][quantity_ordered]`;
-            // row.querySelector('.quantity-input').dataset.index = currentIdx;
             row.querySelector('.price-input').name = `items[${currentIdx}][unit_price]`;
-            // row.querySelector('.price-input').dataset.index = currentIdx;
+            row.querySelectorAll('[data-index]').forEach(el => el.dataset.index = currentIdx);
             currentIdx++;
         });
         itemIndex = currentIdx;
@@ -177,11 +254,25 @@ document.addEventListener('DOMContentLoaded', function () {
     addItemBtn.addEventListener('click', function() {
         const newRow = document.createElement('tr');
         newRow.classList.add('item-row');
+        let productOptionsHTML = productsData.map(p =>
+            `<option value="${p.id}"
+                     data-price="${p.purchase_price}"
+                     data-base-unit-id="${p.base_unit_id}"
+                     data-base-unit-name="${p.base_unit_name}">
+                 ${p.name} (Stock: ${p.quantity_in_stock})
+             </option>`
+        ).join('');
+
         newRow.innerHTML = `
             <td>
                 <select name="items[${itemIndex}][product_id]" class="product-select" required data-index="${itemIndex}">
                     <option value="">Sélectionnez le produit</option>
-                    ${productsData.map(p => `<option value="${p.id}" data-price="${p.purchase_price}">${p.name} (Stock: ${p.quantity_in_stock})</option>`).join('')}
+                    ${productOptionsHTML}
+                </select>
+            </td>
+            <td>
+                <select name="items[${itemIndex}][unit_id]" class="unit-select" required data-index="${itemIndex}" data-selected-unit-id="">
+                    <option value="">Sélectionnez d'abord un produit</option>
                 </select>
             </td>
             <td><input type="number" name="items[${itemIndex}][quantity_ordered]" class="quantity-input" value="1" min="1" required data-index="${itemIndex}"></td>
@@ -192,16 +283,16 @@ document.addEventListener('DOMContentLoaded', function () {
         itemsTbody.appendChild(newRow);
         addRowEventListeners(newRow);
         itemIndex++;
-        calculateTotalAmount(); // Recalculate when a new empty row is added
     });
 
     // Initial setup for existing rows
     itemsTbody.querySelectorAll('.item-row').forEach(row => {
         addRowEventListeners(row);
-        // calculateRowSubtotal(row); // Already done by calculateTotalAmount or value is pre-filled from PHP
+        const productSelect = row.querySelector('.product-select');
+        if (productSelect.value) { // If a product is already selected
+            productSelect.dispatchEvent(new Event('change', { bubbles: false })); // Trigger change to populate units, 'bubbles:false' for some scenarios or 'isTrusted:false' might be implied.
+        }
     });
-    // calculateTotalAmount(); // Call this to ensure total is correct on page load, using pre-filled values
-    // The totalAmountDisplay span is already filled by PHP, so this call is mainly to ensure consistency if JS were to modify anything on load.
-    // For edit form, the initial total is loaded from the PO itself. JS recalculates on interaction.
+    // Total amount is pre-filled by PHP, JS recalculates on interaction.
 });
 </script>

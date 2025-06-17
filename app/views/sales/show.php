@@ -20,8 +20,9 @@ if (isset($_GET['status'])) {
 <h2>Vente #VE-<?php echo htmlspecialchars($sale['id']); ?></h2>
 <div style="margin-bottom: 20px;">
     <a href="index.php?url=sale/index" class="button-info">Retour à la liste</a>
-    <?php if ($sale['payment_type'] === 'deferred' && $sale['payment_status'] !== 'paid' && $sale['payment_status'] !== 'cancelled'): ?>
-        <a href="index.php?url=sale/record_payment/<?php echo $sale['id']; ?>" class="button" style="background-color: #ffc107; color: black;">Enregistrer le paiement</a>
+    <a href="index.php?url=sale/print_invoice/<?php echo $sale['id']; ?>" class="button" target="_blank" style="background-color: #6c757d; color:white;">Imprimer la Facture</a>
+    <?php if ($sale['payment_type'] === 'deferred' && !in_array($sale['payment_status'], ['paid', 'cancelled', 'refunded'])): ?>
+        <a href="index.php?url=sale/manage_payments/<?php echo $sale['id']; ?>" class="button" style="background-color: #ffc107; color: black;">Gérer les Paiements</a>
     <?php endif; ?>
     <?php // Edit/Delete: Add conditions for when these actions are allowed (e.g., not if paid)
         // <a href="index.php?url=sale/edit/<?php echo $sale['id']; ?>" class="button">Modifier la vente</a>
@@ -45,13 +46,22 @@ if (isset($_GET['status'])) {
             <?php endif; ?>
         </td>
     </tr>
-    <tr><th>Montant total :</th><td style="font-weight:bold;"><?php echo htmlspecialchars(number_format($sale['total_amount'], 2)); ?></td></tr>
+    <tr><th>Sous-Total Articles :</th><td><?php echo htmlspecialchars(number_format((float)($sale['total_amount'] + ($sale['discount_amount'] ?? 0)), 2, ',', ' ')); ?> €</td></tr>
+    <tr><th>Réduction :</th><td><?php echo htmlspecialchars(number_format((float)($sale['discount_amount'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
+    <tr><th>Montant Net :</th><td style="font-weight:bold;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?> €</td></tr>
     <tr><th>Type de paiement :</th><td><?php echo htmlspecialchars(ucfirst($sale['payment_type'])); ?></td></tr>
     <tr><th>Statut du paiement :</th><td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td></tr>
     <?php if ($sale['payment_type'] === 'deferred'): ?>
+        <tr><th>Montant Payé :</th><td style="color: green;"><?php echo htmlspecialchars(number_format((float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
+        <tr><th>Solde Restant :</th><td style="font-weight: bold; color: <?php echo (((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0)) > 0) ? 'red' : 'green'; ?>;">
+            <?php echo htmlspecialchars(number_format((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €
+        </td></tr>
         <tr><th>Date d'échéance :</th><td><?php echo htmlspecialchars($sale['due_date'] ?? 'N/A'); ?></td></tr>
+    <?php elseif ($sale['payment_type'] === 'immediate'): ?>
+        <tr><th>Montant Versé :</th><td><?php echo htmlspecialchars(number_format((float)($sale['amount_tendered'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
+        <tr><th>Monnaie Rendue :</th><td><?php echo htmlspecialchars(number_format((float)($sale['change_due'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
     <?php endif; ?>
-     <tr><th>Date de paiement :</th><td><?php echo htmlspecialchars($sale['payment_date'] ?? 'N/A'); ?></td></tr>
+    <tr><th>Date de dernier paiement :</th><td><?php echo htmlspecialchars($sale['payment_date'] ?? 'N/A'); ?></td></tr>
     <tr><th>Remarques :</th><td><?php echo nl2br(htmlspecialchars($sale['notes'] ?? 'N/A')); ?></td></tr>
     <tr><th>Enregistré le :</th><td><?php echo htmlspecialchars($sale['created_at']); ?></td></tr>
     <tr><th>Dernière mise à jour :</th><td><?php echo htmlspecialchars($sale['updated_at']); ?></td></tr>
@@ -66,6 +76,7 @@ if (isset($_GET['status'])) {
             <tr>
                 <th>ID Produit</th>
                 <th>Nom du produit</th>
+                <th>Unité</th>
                 <th>Quantité vendue</th>
                 <th>Prix unitaire</th>
                 <th>Sous-total</th>
@@ -75,21 +86,59 @@ if (isset($_GET['status'])) {
             <?php foreach ($sale['items'] as $item): ?>
             <tr>
                 <td><?php echo htmlspecialchars($item['product_id']); ?></td>
-                <td><?php echo htmlspecialchars($item['product_name']); ?> (<?php echo htmlspecialchars($item['unit_of_measure']); ?>)</td>
-                <td style="text-align: right;"><?php echo htmlspecialchars($item['quantity_sold']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($item['unit_price'], 2)); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($item['sub_total'], 2)); ?></td>
+                <td><?php echo htmlspecialchars($item['product_name']); ?></td>
+                <td><?php echo htmlspecialchars($item['unit_name'] . ' (' . $item['unit_symbol'] . ')'); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['quantity_sold'], 3, ',', ' ')); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['sub_total'], 2, ',', ' ')); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="4" style="text-align:right;">Total général :</th>
-                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format($sale['total_amount'], 2)); ?></strong></td>
+                <th colspan="5" style="text-align:right;">Total général :</th>
+                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?></strong></td>
             </tr>
         </tfoot>
     </table>
 <?php endif; ?>
+
+<?php if ($sale['payment_type'] === 'deferred'): ?>
+<h3>Historique des Paiements</h3>
+<?php
+// TODO: Controller (SaleController@show) needs to fetch and pass $payments_history
+// $payments_history = $this->salePaymentModel->getPaymentsForSale($sale['id']);
+if (!empty($payments_history)):
+?>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date Paiement</th>
+                <th>Montant Payé</th>
+                <th>Méthode</th>
+                <th>Remarques</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($payments_history as $payment): ?>
+            <tr>
+                <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($payment['payment_date']))); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$payment['amount_paid'], 2, ',', ' ')); ?> €</td>
+                <td><?php echo htmlspecialchars($payment['payment_method']); ?></td>
+                <td><?php echo nl2br(htmlspecialchars($payment['notes'] ?? '')); ?></td>
+                <td>
+                    <a href="index.php?url=sale/print_payment_receipt/<?php echo $payment['id']; ?>" class="button-info btn-sm" target="_blank">Imprimer Reçu</a>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php else: ?>
+    <p>Aucun paiement enregistré pour cette vente.</p>
+<?php endif; ?>
+<?php endif; // End if payment_type is deferred ?>
+
 
 <style>
     .status-pending { color: orange; font-weight: bold; }
