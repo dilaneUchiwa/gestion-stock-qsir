@@ -1,13 +1,12 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
+require_once ROOT_PATH . '/config/database.php';
 
-class ProductCategory {
-    private $db;
+class ProductCategory extends Model {
     private $tableName = "product_categories";
 
-    public function __construct() {
-        $this->db = Database::connect();
+    public function __construct(Database $dbInstance) {
+        parent::__construct($dbInstance);
     }
 
     public function getAll() {

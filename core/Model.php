@@ -41,7 +41,6 @@ class Model {
             return false;
         }
     }
-
     // Other common database operations can be added here,
     // for example, findAll, save (for insert/update), deleteById, etc.
 }

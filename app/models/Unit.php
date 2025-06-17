@@ -1,13 +1,12 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
+require_once ROOT_PATH . '/config/database.php';
 
-class Unit {
-    private $db;
+class Unit extends Model{
     private $tableName = "units";
 
-    public function __construct() {
-        $this->db = Database::connect();
+     public function __construct(Database $dbInstance) {
+        parent::__construct($dbInstance);
     }
 
     public function getAll() {

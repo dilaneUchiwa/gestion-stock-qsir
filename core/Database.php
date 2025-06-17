@@ -67,6 +67,10 @@ class Database {
         return $stmt->rowCount();
     }
 
+    public function prepare($sql) {
+        return $this->pdo->prepare($sql);
+    }
+
     // Prevent cloning and unserialization
     private function __clone() { }
     public function __wakeup() { }
