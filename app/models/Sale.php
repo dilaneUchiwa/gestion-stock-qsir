@@ -12,6 +12,26 @@ class Sale extends Model {
         parent::__construct($dbInstance);
     }
 
+    private function _generateInvoiceNumber() {
+        $currentYearMonth = date('Ym');
+        $prefix = "INV-" . $currentYearMonth . "-";
+
+        $sql = "SELECT MAX(invoice_number) as max_invoice
+                FROM {$this->tableName}
+                WHERE invoice_number LIKE :prefix";
+
+        $result = $this->db->select($sql, [':prefix' => $prefix . '%']);
+
+        $nextSequence = 1;
+        if ($result && $result[0] && $result[0]['max_invoice']) {
+            $maxInvoice = $result[0]['max_invoice'];
+            $lastSequence = (int)substr($maxInvoice, strlen($prefix));
+            $nextSequence = $lastSequence + 1;
+        }
+
+        return $prefix . str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
+    }
+
     /**
      * Creates a new sale along with its items and updates product stock.
      * @param array $data Sale header data
@@ -101,12 +121,14 @@ class Sale extends Model {
 
             // Prepare Sale header fields
             // Added 'discount_amount', 'paid_amount', 'amount_tendered', 'change_due'
+            // Added 'invoice_number'
+            $generatedInvoiceNumber = $this->_generateInvoiceNumber();
             $saleFields = ['client_id', 'client_name_occasional', 'sale_date', 'total_amount',
                            'discount_amount', 'paid_amount', 'amount_tendered', 'change_due',
-                           'payment_status', 'payment_type', 'due_date', 'notes'];
-            $saleParams = [];
-            $saleColumns = [];
-            $salePlaceholders = [];
+                           'payment_status', 'payment_type', 'due_date', 'notes', 'invoice_number'];
+            $saleParams = [':invoice_number' => $generatedInvoiceNumber];
+            $saleColumns = ['invoice_number'];
+            $salePlaceholders = [':invoice_number'];
 
             // Set paid_amount based on payment type and status before building params
             if ($data['payment_type'] === 'immediate' && ($data['payment_status'] ?? (($data['payment_type'] === 'immediate') ? 'paid' : 'pending')) === 'paid') {

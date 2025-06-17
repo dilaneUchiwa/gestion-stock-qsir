@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Facture #VE-<?php echo htmlspecialchars($sale['id'] ?? ''); ?></title>
+    <title>Facture <?php echo htmlspecialchars($sale['invoice_number'] ?? 'VE-'.$sale['id']); ?></title>
     <link rel="stylesheet" href="/public/css/print_style.css"> <!-- Added link to print_style.css -->
     <style>
         /* View-specific styles can still go here, or be moved to print_style.css */
@@ -53,7 +53,7 @@
 
         <div class="invoice-details">
             <h1>FACTURE</h1>
-            <p><strong>Numéro de Facture :</strong> #VE-<?php echo htmlspecialchars($sale['id']); ?></p>
+            <p><strong>Numéro de Facture :</strong> <?php echo htmlspecialchars($sale['invoice_number'] ?? ('VE-' . $sale['id'])); ?></p>
             <p><strong>Date de Vente :</strong> <?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['sale_date']))); ?></p>
             <?php if ($sale['payment_type'] === 'deferred' && !empty($sale['due_date'])): ?>
                 <p><strong>Date d'Échéance :</strong> <?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['due_date']))); ?></p>

@@ -365,9 +365,11 @@ CREATE TABLE IF NOT EXISTS sales (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_sale_client CHECK ((client_id IS NOT NULL AND client_name_occasional IS NULL) OR (client_id IS NULL)), -- Ensure one client type
+    invoice_number VARCHAR(50) NULL, -- Can be made NOT NULL later after backfilling
     CONSTRAINT check_sale_payment_status CHECK (payment_status IN ('pending', 'paid', 'partially_paid', 'refunded', 'cancelled')),
     CONSTRAINT check_sale_payment_type CHECK (payment_type IN ('immediate', 'deferred')),
-    CONSTRAINT check_sale_due_date CHECK ((payment_type = 'deferred' AND due_date IS NOT NULL) OR (payment_type = 'immediate'))
+    CONSTRAINT check_sale_due_date CHECK ((payment_type = 'deferred' AND due_date IS NOT NULL) OR (payment_type = 'immediate')),
+    CONSTRAINT uq_sales_invoice_number UNIQUE (invoice_number)
 );
 
 CREATE TRIGGER update_sales_updated_at
@@ -378,6 +380,7 @@ EXECUTE FUNCTION update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_sales_client_id ON sales(client_id);
 CREATE INDEX IF NOT EXISTS idx_sales_payment_status ON sales(payment_status);
 CREATE INDEX IF NOT EXISTS idx_sales_payment_type ON sales(payment_type);
+CREATE INDEX IF NOT EXISTS idx_sales_invoice_number ON sales(invoice_number); -- Index for faster lookup
 
 COMMENT ON TABLE sales IS 'Stores customer sales records.';
 COMMENT ON COLUMN sales.total_amount IS 'Total amount for the sale AFTER discount (SUM(sale_items.sub_total) - discount_amount).';
@@ -389,6 +392,7 @@ COMMENT ON COLUMN sales.discount_amount IS 'Montant total de la réduction appli
 COMMENT ON COLUMN sales.paid_amount IS 'Montant total déjà payé pour cette vente.';
 COMMENT ON COLUMN sales.amount_tendered IS 'Montant effectivement versé par le client pour cette vente (surtout pour paiements immédiats).';
 COMMENT ON COLUMN sales.change_due IS 'Monnaie rendue au client.';
+COMMENT ON COLUMN sales.invoice_number IS 'Formatted invoice number, e.g., INV-YYYYMM-XXXX.';
 
 -- Sale Payments Table
 CREATE TABLE IF NOT EXISTS sale_payments (

@@ -17,7 +17,7 @@ if (isset($_GET['status'])) {
 }
 ?>
 
-<h2>Vente #VE-<?php echo htmlspecialchars($sale['id']); ?></h2>
+<h2>Vente <?php echo htmlspecialchars($sale['invoice_number'] ?? ('#VE-' . $sale['id'])); ?></h2>
 <div style="margin-bottom: 20px;">
     <a href="index.php?url=sale/index" class="button-info">Retour à la liste</a>
     <a href="index.php?url=sale/print_invoice/<?php echo $sale['id']; ?>" class="button" target="_blank" style="background-color: #6c757d; color:white;">Imprimer la Facture</a>
@@ -36,6 +36,7 @@ if (isset($_GET['status'])) {
 
 <h3>Détails de la vente</h3>
 <table class="table" style="width:60%; margin-bottom:20px;">
+    <tr><th>Numéro de Facture :</th><td><strong><?php echo htmlspecialchars($sale['invoice_number'] ?? 'N/A'); ?></strong></td></tr>
     <tr><th>Date de la vente :</th><td><?php echo htmlspecialchars($sale['sale_date']); ?></td></tr>
     <tr><th>Client :</th>
         <td>

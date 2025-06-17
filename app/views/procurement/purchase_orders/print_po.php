@@ -85,8 +85,8 @@
                     <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                     <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['quantity_ordered'], 2, ',', ' ')); ?></td>
                     <td><?php echo htmlspecialchars($item['unit_symbol'] ?? $item['unit_name'] ?? ''); ?></td>
-                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?> €</td>
-                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['sub_total'], 2, ',', ' ')); ?> €</td>
+                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?> <?php echo APP_CURRENCY_SYMBOL; ?></td>
+                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['sub_total'], 2, ',', ' ')); ?> <?php echo APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <?php
                     endforeach;
@@ -99,7 +99,7 @@
             <table>
                 <tr>
                     <th style="font-size: 1.2em;">Total Général HT :</th>
-                    <td style="font-size: 1.2em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($purchaseOrder['total_amount'] ?? 0), 2, ',', ' ')); ?> €</td>
+                    <td style="font-size: 1.2em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($purchaseOrder['total_amount'] ?? 0), 2, ',', ' ')); ?> <?php echo APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <?php // Add VAT, Total TTC etc. if applicable and data is available ?>
             </table>

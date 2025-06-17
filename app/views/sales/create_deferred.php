@@ -338,5 +338,26 @@ document.addEventListener('DOMContentLoaded', function () {
         addRowEventListeners(row);
     });
     // calculateAllTotals(); // Already called earlier
+
+    // Client selection logic
+    const clientIdSelect = document.getElementById('client_id');
+    const clientNameOccasionalInput = document.getElementById('client_name_occasional');
+
+    function toggleClientNameOccasional() {
+        if (clientIdSelect.value) {
+            // A registered client is selected
+            clientNameOccasionalInput.disabled = true;
+            clientNameOccasionalInput.value = ''; // Optionally clear the value
+        } else {
+            // No registered client selected ("Sélectionner un client enregistré")
+            clientNameOccasionalInput.disabled = false;
+        }
+    }
+
+    // Initial state on page load
+    toggleClientNameOccasional();
+
+    // Event listener for changes
+    clientIdSelect.addEventListener('change', toggleClientNameOccasional);
 });
 </script>

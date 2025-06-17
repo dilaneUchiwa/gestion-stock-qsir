@@ -1,6 +1,6 @@
 <div class="container mt-5">
-    <h2>Créer une Unité</h2>
-    <form action="index.php?url=units/store" method="POST">
+    <h2>Modifier l'Unité</h2>
+    <form action="index.php?url=units/update/<?php echo $data['id']; ?>" method="POST">
         <div class="form-group">
             <label for="name">Nom</label>
             <input type="text" class="form-control <?php echo (!empty($data['name_err'])) ? 'is-invalid' : ''; ?>" id="name" name="name" value="<?php echo isset($data['name']) ? htmlspecialchars($data['name']) : ''; ?>" required>
@@ -15,7 +15,7 @@
                 <span class="invalid-feedback"><?php echo $data['symbol_err']; ?></span>
             <?php endif; ?>
         </div>
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <button type="submit" class="btn btn-primary">Mettre à jour</button>
         <a href="index.php?url=units" class="btn btn-secondary">Annuler</a>
     </form>
 </div>

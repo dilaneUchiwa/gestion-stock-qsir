@@ -27,7 +27,7 @@ if (isset($_GET['status'])) {
     <table class="table">
         <thead>
             <tr>
-                <th>ID</th>
+                <th>Facture #</th>
                 <th>Date</th>
                 <th>Client</th>
                 <th>Montant Net</th>
@@ -46,7 +46,7 @@ if (isset($_GET['status'])) {
                 $remainingBalance = $totalAmount - $paidAmount;
             ?>
             <tr>
-                <td>VE-<?php echo htmlspecialchars($sale['id']); ?></td>
+                <td><?php echo htmlspecialchars($sale['invoice_number'] ?? ('VE-' . $sale['id'])); ?></td>
                 <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['sale_date']))); ?></td>
                 <td><?php echo htmlspecialchars($sale['client_display_name']); ?></td>
                 <td style="text-align: right;"><?php echo htmlspecialchars(number_format($totalAmount, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
