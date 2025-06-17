@@ -56,6 +56,7 @@
                     <div class="dropdown-content">
                         <a href="index.php?url=stock/index">Aperçu du stock</a>
                         <a href="index.php?url=stock/create_adjustment">Nouvel ajustement</a>
+                        <a href="index.php?url=fractioning/index">Fractionnement de produit</a>
                     </div>
                 </li>
                  <li class="dropdown">
