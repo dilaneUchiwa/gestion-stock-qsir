@@ -26,10 +26,10 @@ $formErrors = $errors ?? [];
 <table class="table table-bordered" style="width: auto; margin-bottom: 20px;">
     <tr><th>Client :</th><td><?php echo htmlspecialchars($sale['client_display_name']); ?></td></tr>
     <tr><th>Date de vente :</th><td><?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['sale_date']))); ?></td></tr>
-    <tr><th>Montant Total :</th><td><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?> €</td></tr>
-    <tr><th>Montant Payé :</th><td style="color: green;"><?php echo htmlspecialchars(number_format((float)$sale['paid_amount'], 2, ',', ' ')); ?> €</td></tr>
+    <tr><th>Montant Total :</th><td><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
+    <tr><th>Montant Payé :</th><td style="color: green;"><?php echo htmlspecialchars(number_format((float)$sale['paid_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
     <tr><th>Solde Restant :</th><td style="font-weight: bold; color: <?php echo ((float)$remaining_balance > 0) ? 'red' : 'green'; ?>;">
-        <?php echo htmlspecialchars(number_format((float)$remaining_balance, 2, ',', ' ')); ?> €
+        <?php echo htmlspecialchars(number_format((float)$remaining_balance, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?>
     </td></tr>
     <tr><th>Statut du Paiement :</th><td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td></tr>
 </table>
@@ -48,7 +48,7 @@ $formErrors = $errors ?? [];
         <div class="form-group">
             <label for="amount_paid">Montant Payé *</label>
             <input type="number" name="amount_paid" id="amount_paid" value="<?php echo htmlspecialchars($currentFormData['amount_paid'] ?? ''); ?>" min="0.01" step="0.01" required max="<?php echo htmlspecialchars(max(0.01, (float)$remaining_balance)); ?>">
-             <small>Max: <?php echo htmlspecialchars(number_format((float)$remaining_balance, 2, ',', ' ')); ?> €</small>
+             <small>Max: <?php echo htmlspecialchars(number_format((float)$remaining_balance, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></small>
             <?php if (isset($formErrors['amount_paid'])): ?><small class="error-text"><?php echo htmlspecialchars($formErrors['amount_paid']); ?></small><?php endif; ?>
         </div>
         <div class="form-group">
@@ -92,7 +92,7 @@ $formErrors = $errors ?? [];
             <?php foreach ($payments_history as $payment): ?>
             <tr>
                 <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($payment['payment_date']))); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$payment['amount_paid'], 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$payment['amount_paid'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td><?php echo htmlspecialchars($payment['payment_method']); ?></td>
                 <td><?php echo nl2br(htmlspecialchars($payment['notes'] ?? '')); ?></td>
                 <td><?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($payment['created_at']))); ?></td>

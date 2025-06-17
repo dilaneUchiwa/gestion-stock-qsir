@@ -89,7 +89,7 @@
                 <td><?php echo htmlspecialchars(ucfirst($sale['payment_type'])); ?></td>
                 <td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td>
                 <td><?php echo htmlspecialchars($sale['due_date'] ?? 'N/A'); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($sale['total_amount'], 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td><a href="index.php?url=sale/show/<?php echo $sale['id']; ?>" class="button-info">Voir les détails</a></td>
             </tr>
             <?php endforeach; ?>
@@ -97,7 +97,7 @@
         <tfoot>
             <tr>
                 <th colspan="6" style="text-align: right;">Total général pour la période :</th>
-                <th style="text-align: right;"><?php echo htmlspecialchars(number_format($grandTotalAmount, 2)); ?></th>
+                <th style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$grandTotalAmount, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></th>
                 <th></th>
             </tr>
         </tfoot>

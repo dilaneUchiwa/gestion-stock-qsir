@@ -45,7 +45,7 @@ if (isset($_GET['status'])) {
                 <td><?php echo htmlspecialchars($po['order_date']); ?></td>
                 <td><?php echo htmlspecialchars($po['expected_delivery_date'] ?? 'N/A'); ?></td>
                 <td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $po['status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $po['status']))); ?></span></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($po['total_amount'], 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$po['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td>
                     <a href="index.php?url=purchaseorder/show/<?php echo $po['id']; ?>" class="button-info">Voir</a>
                     <?php if (in_array($po['status'], ['pending', 'partially_received'])): // Allow edit only for certain statuses ?>

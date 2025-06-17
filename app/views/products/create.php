@@ -55,9 +55,9 @@
     <fieldset>
         <legend>Tarification et stock</legend>
         <div class="form-group">
-            <label for="quantity_in_stock">Quantité initiale en stock</label>
+            <label for="quantity_in_stock">Quantité initiale en stock (en unité de base)</label>
             <input type="number" name="quantity_in_stock" id="quantity_in_stock" value="<?php echo htmlspecialchars($data['quantity_in_stock'] ?? '0'); ?>" min="0">
-            <small>Cela créera un mouvement de 'stock_initial'. Les modifications ultérieures du stock doivent être effectuées via les livraisons, les ventes ou les ajustements.</small>
+            <small>Sera enregistrée dans l'unité de base sélectionnée. Cela créera un mouvement de 'stock_initial'.</small>
         </div>
         <div class="form-group">
             <label for="purchase_price">Prix d'achat</label>
@@ -115,32 +115,45 @@
 </form>
 
 <script>
-// Basic JS to add more alternative unit fields - for later enhancement
-document.getElementById('add-alternative-unit-button').addEventListener('click', function() {
-    const container = document.getElementById('alternative-units-container');
-    const index = container.getElementsByClassName('alternative-unit-group').length;
-    const newUnitHTML = `
-    <div class="alternative-unit-group" style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
-        <div class="form-group">
-            <label for="alt_unit_id_${index}">Unité alternative</label>
-            <select name="alternative_units[${index}][unit_id]" id="alt_unit_id_${index}">
-                <option value="">Sélectionnez une unité</option>
-                <?php if (!empty($units)): ?>
-                    <?php foreach ($units as $unit): ?>
-                        <option value="<?php echo htmlspecialchars($unit['id']); ?>">
-                            <?php echo htmlspecialchars($unit['name'] . ' (' . $unit['symbol'] . ')'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="alt_conversion_factor_${index}">Facteur de conversion vers l'unité de base</label>
-            <input type="number" step="any" name="alternative_units[${index}][conversion_factor]" id="alt_conversion_factor_${index}" placeholder="ex: 12.0">
+document.addEventListener('DOMContentLoaded', function() {
+    const addAlternativeUnitButton = document.getElementById('add-alternative-unit-button');
+    const allUnitsData = <?php echo json_encode($units ?? []); ?>; // All units passed from controller
+
+    addAlternativeUnitButton.addEventListener('click', function() {
+        const container = document.getElementById('alternative-units-container');
+        const index = container.getElementsByClassName('alternative-unit-group').length;
+        const baseUnitIdSelected = document.getElementById('base_unit_id').value;
+
+        let optionsHTML = '<option value="">Sélectionnez une unité</option>';
+        allUnitsData.forEach(function(unit) {
+            if (unit.id !== baseUnitIdSelected) { // Exclude the selected base unit
+                optionsHTML += `<option value="${escapeHTML(unit.id)}">${escapeHTML(unit.name)} (${escapeHTML(unit.symbol)})</option>`;
+            }
+        });
+
+        const newUnitHTML = `
+        <div class="alternative-unit-group" style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+            <div class="form-group">
+                <label for="alt_unit_id_${index}">Unité alternative</label>
+                <select name="alternative_units[${index}][unit_id]" id="alt_unit_id_${index}" required>
+                    ${optionsHTML}
+                </select>
+            </div>
+            <div class="form-group">
+            <label for="alt_conversion_factor_${index}">Facteur de conversion vers l'unité de base *</label>
+            <input type="number" step="any" name="alternative_units[${index}][conversion_factor]" id="alt_conversion_factor_${index}" placeholder="ex: 12.0" required>
             <small>Ex: Si l'unité de base est "Pièce" et cette unité est "Carton de 12", le facteur est 12.</small>
         </div>
         <button type="button" class="button button-danger" onclick="this.parentElement.remove()">Supprimer</button>
     </div>`;
-    container.insertAdjacentHTML('beforeend', newUnitHTML);
+        container.insertAdjacentHTML('beforeend', newUnitHTML);
+    });
+
+    // Helper function to escape HTML, to prevent XSS if unit names somehow contain it
+    function escapeHTML(str) {
+        var p = document.createElement("p");
+        p.appendChild(document.createTextNode(str));
+        return p.innerHTML;
+    }
 });
 </script>

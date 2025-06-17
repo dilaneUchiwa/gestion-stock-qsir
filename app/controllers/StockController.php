@@ -23,8 +23,17 @@ class StockController extends Controller {
         // foreach($products as &$product) {
         //    $product['calculated_stock'] = $this->stockMovementModel->getCurrentStockCalculated($product['id']);
         // }
+
+        $productUnitsMap = [];
+        if ($products) { // Ensure $products is not empty before iterating
+            foreach ($products as $product) {
+                $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+            }
+        }
+
         $this->renderView('stock/index', [
             'products' => $products,
+            'productUnitsMap' => $productUnitsMap,
             'title' => 'Aperçu du stock'
         ]);
     }

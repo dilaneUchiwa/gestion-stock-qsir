@@ -32,10 +32,12 @@
                     </option>
                 <?php endforeach; ?>
             </select>
+            <small>Si non sélectionné, saisissez le nom du client occasionnel ci-dessous.</small>
         </div>
         <div class="form-group">
             <label for="client_name_occasional">Nom du client occasionnel</label>
             <input type="text" name="client_name_occasional" id="client_name_occasional" value="<?php echo htmlspecialchars($data['client_name_occasional'] ?? ''); ?>">
+            <small>Requis si aucun client enregistré n'est sélectionné.</small>
         </div>
         <div class="form-group">
             <label for="sale_date">Date de la vente *</label>
@@ -117,15 +119,15 @@
         <div style="margin-top: 20px; padding-top:10px; border-top: 1px solid #ccc;">
             <div class="form-group">
                 <label for="grossTotalDisplayLabel" style="font-weight:bold;">Sous-Total Brut des Articles :</label>
-                <span id="grossTotalDisplay" style="font-weight:bold;">0.00</span> €
+                <span id="grossTotalDisplay" style="font-weight:bold;">0.00</span> <?php echo APP_CURRENCY_SYMBOL; ?>
             </div>
             <div class="form-group">
                 <label for="discount_amount">Montant de la Réduction :</label>
-                <input type="number" name="discount_amount" id="discount_amount" value="<?php echo htmlspecialchars($data['discount_amount'] ?? '0.00'); ?>" min="0" step="0.01" style="width:100px; text-align:right;"> €
+                <input type="number" name="discount_amount" id="discount_amount" value="<?php echo htmlspecialchars($data['discount_amount'] ?? '0.00'); ?>" min="0" step="0.01" style="width:100px; text-align:right;"> <?php echo APP_CURRENCY_SYMBOL; ?>
             </div>
             <div class="form-group">
                 <label for="netTotalDisplayLabel" style="font-weight:bold; color: #28a745;">Total Net à Payer :</label>
-                <span id="netTotalDisplay" style="font-weight:bold; color: #28a745; font-size: 1.2em;">0.00</span> €
+                <span id="netTotalDisplay" style="font-weight:bold; color: #28a745; font-size: 1.2em;">0.00</span> <?php echo APP_CURRENCY_SYMBOL; ?>
             </div>
         </div>
     </fieldset>

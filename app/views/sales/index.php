@@ -49,10 +49,10 @@ if (isset($_GET['status'])) {
                 <td>VE-<?php echo htmlspecialchars($sale['id']); ?></td>
                 <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($sale['sale_date']))); ?></td>
                 <td><?php echo htmlspecialchars($sale['client_display_name']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($totalAmount, 2, ',', ' ')); ?> €</td>
-                <td style="text-align: right; color: green;"><?php echo htmlspecialchars(number_format($paidAmount, 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($totalAmount, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right; color: green;"><?php echo htmlspecialchars(number_format($paidAmount, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td style="text-align: right; font-weight: bold; color: <?php echo ($remainingBalance > 0.009) ? 'red' : 'green'; ?>;">
-                    <?php echo htmlspecialchars(number_format($remainingBalance, 2, ',', ' ')); ?> €
+                    <?php echo htmlspecialchars(number_format($remainingBalance, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?>
                 </td>
                 <td><?php echo htmlspecialchars(ucfirst($sale['payment_type'])); ?></td>
                 <td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td>

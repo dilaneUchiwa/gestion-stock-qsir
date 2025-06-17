@@ -156,6 +156,56 @@ class SalePayment extends Model {
             return 0.00;
         }
     }
+
+    /**
+     * Retrieves daily cash flow data within a specified date range.
+     * Combines immediate paid sales and individual payments for deferred sales.
+     * @param string $startDate YYYY-MM-DD
+     * @param string $endDate YYYY-MM-DD
+     * @return array An array of daily cash flow summaries: [['transaction_date' => YYYY-MM-DD, 'total_received' => amount], ...]
+     */
+    public function getDailyCashFlow(string $startDate, string $endDate): array {
+        $sql = "
+            SELECT
+                transaction_date,
+                SUM(amount_received) as total_received
+            FROM (
+                -- Part 1: Immediate Sales that are fully paid
+                SELECT
+                    s.sale_date as transaction_date,
+                    s.total_amount as amount_received
+                FROM sales s
+                WHERE s.payment_type = 'immediate'
+                  AND s.payment_status = 'paid'
+                  AND s.sale_date >= :start_date_sales
+                  AND s.sale_date <= :end_date_sales
+
+                UNION ALL
+
+                -- Part 2: Payments received for sales (typically deferred, but includes any payment record)
+                SELECT
+                    sp.payment_date as transaction_date,
+                    sp.amount_paid as amount_received
+                FROM sale_payments sp
+                WHERE sp.payment_date >= :start_date_payments
+                  AND sp.payment_date <= :end_date_payments
+            ) as combined_cash_flow
+            GROUP BY transaction_date
+            ORDER BY transaction_date ASC
+        ";
+
+        try {
+            return $this->db->select($sql, [
+                ':start_date_sales' => $startDate,
+                ':end_date_sales' => $endDate,
+                ':start_date_payments' => $startDate,
+                ':end_date_payments' => $endDate
+            ]);
+        } catch (PDOException $e) {
+            error_log("Error fetching daily cash flow: " . $e->getMessage());
+            return [];
+        }
+    }
 }
 
 ?>

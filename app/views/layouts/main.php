@@ -13,9 +13,28 @@
         <nav>
             <ul>
                 <!-- L'URL de base doit être définie ou générée dynamiquement. En supposant que index.php est le point d'entrée. -->
-                <li><a href="index.php?url=products">Produits</a></li>
-                <li><a href="index.php?url=suppliers">Fournisseurs</a></li>
-                <li><a href="index.php?url=clients">Clients</a></li>
+                <li class="dropdown">
+                    <a href="javascript:void(0)" class="dropbtn">Produits</a>
+                    <div class="dropdown-content">
+                        <a href="index.php?url=products">Gérer les Produits</a>
+                        <a href="index.php?url=units">Gérer les Unités</a>
+                        <a href="index.php?url=productcategories">Gérer les Catégories de Produits</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="javascript:void(0)" class="dropbtn">Fournisseurs</a>
+                    <div class="dropdown-content">
+                        <a href="index.php?url=suppliers">Gérer les Fournisseurs</a>
+                        <a href="index.php?url=suppliercategories">Gérer les Catégories de Fournisseurs</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="javascript:void(0)" class="dropbtn">Clients</a>
+                    <div class="dropdown-content">
+                        <a href="index.php?url=clients">Gérer les Clients</a>
+                        <a href="index.php?url=clientcategories">Gérer les Catégories de Clients</a>
+                    </div>
+                </li>
                 <li class="dropdown">
                     <a href="javascript:void(0)" class="dropbtn">Approvisionnement</a>
                     <div class="dropdown-content">
@@ -49,6 +68,7 @@
                         <a href="index.php?url=report/stock_exits">Sorties de stock</a>
                         <a href="index.php?url=report/sales_report">Rapport des ventes</a>
                         <a href="index.php?url=report/purchases_report">Rapport des achats</a>
+                        <a href="index.php?url=report/daily_cash_flow">Flux de Caisse Journalier</a>
                     </div>
                 </li>
                 <!-- Ajoutez plus de liens de navigation globale ici -->

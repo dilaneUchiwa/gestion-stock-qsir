@@ -51,18 +51,18 @@ $deferredPaymentsPeriodTotal = 0;
             ?>
             <tr>
                 <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($summary['date']))); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($summary['immediate_sales_total'] ?? 0), 2, ',', ' ')); ?> €</td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($summary['deferred_payments_total'] ?? 0), 2, ',', ' ')); ?> €</td>
-                <td style="text-align: right; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($summary['grand_total'] ?? 0), 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($summary['immediate_sales_total'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($summary['deferred_payments_total'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($summary['grand_total'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr style="background-color: #f0f0f0; font-weight: bold;">
                 <td style="text-align: right;">Total pour la période :</td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($immediateSalesPeriodTotal, 2, ',', ' ')); ?> €</td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($deferredPaymentsPeriodTotal, 2, ',', ' ')); ?> €</td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($grandTotalPeriod, 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($immediateSalesPeriodTotal, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($deferredPaymentsPeriodTotal, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($grandTotalPeriod, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
             </tr>
         </tfoot>
     </table>

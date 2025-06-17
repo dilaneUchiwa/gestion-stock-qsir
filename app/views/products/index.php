@@ -36,8 +36,8 @@
                 <td><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
                 <td><?php echo htmlspecialchars($product['base_unit_name'] ?? 'N/A'); ?></td>
                 <td class="text-right <?php if ($product['quantity_in_stock'] <= 0) echo 'font-bold'; ?>"><?php echo htmlspecialchars($product['quantity_in_stock']); ?></td>
-                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')); ?></td>
-                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')); ?></td>
+                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td class="text-right"><?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td>
                     <a href="index.php?url=products/show/<?php echo $product['id']; ?>" class="button button-info btn-sm">Voir</a>
                     <a href="index.php?url=products/edit/<?php echo $product['id']; ?>" class="button btn-sm">Modifier</a>

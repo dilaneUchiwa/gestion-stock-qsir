@@ -43,8 +43,8 @@
                 <td><a href="index.php?url=stock/history/<?php echo $product['id']; ?>"><?php echo htmlspecialchars($product['name']); ?></a></td>
                 <td><?php echo htmlspecialchars($product['unit_of_measure']); ?></td>
                 <td style="text-align: right; font-weight: bold;"><?php echo htmlspecialchars($product['quantity_in_stock']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($product['purchase_price'] ?? 0, 2)); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($product['selling_price'] ?? 0, 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

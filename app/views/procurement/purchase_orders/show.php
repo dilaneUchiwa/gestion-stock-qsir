@@ -78,20 +78,20 @@ if (isset($_GET['status'])) {
                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                 <td><?php echo htmlspecialchars($item['unit_name'] . ' (' . $item['unit_symbol'] . ')'); ?></td>
                 <td style="text-align: right;"><?php echo htmlspecialchars($item['quantity_ordered']); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$subtotal, 2, ',', ' ')); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$subtotal, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
                 <th colspan="5" style="text-align:right;">Total de la commande (BD) :</th>
-                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$purchaseOrder['total_amount'], 2, ',', ' ')); ?></strong></td>
+                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$purchaseOrder['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></strong></td>
             </tr>
             <?php if (abs((float)$calculatedTotal - (float)$purchaseOrder['total_amount']) > 0.001) : // Check if calculated total matches stored total ?>
             <tr>
                 <th colspan="5" style="text-align:right; color: orange;">Total calculé (articles) :</th>
-                <td style="text-align: right; color: orange;"><strong><?php echo htmlspecialchars(number_format((float)$calculatedTotal, 2, ',', ' ')); ?></strong></td>
+                <td style="text-align: right; color: orange;"><strong><?php echo htmlspecialchars(number_format((float)$calculatedTotal, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></strong></td>
             </tr>
             <?php endif; ?>
         </tfoot>

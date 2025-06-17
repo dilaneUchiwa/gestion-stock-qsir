@@ -87,8 +87,8 @@
                     <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                     <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['quantity_sold'], 2, ',', ' ')); ?></td>
                     <td><?php echo htmlspecialchars($item['unit_symbol'] ?? $item['unit_name'] ?? ''); ?></td>
-                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?> €</td>
-                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format($itemSubTotal, 2, ',', ' ')); ?> €</td>
+                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                    <td style="text-align:right;"><?php echo htmlspecialchars(number_format($itemSubTotal, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <?php
                     endforeach;
@@ -101,28 +101,42 @@
             <table>
                 <tr>
                     <th>Sous-Total Brut :</th>
-                    <td><?php echo htmlspecialchars(number_format($grossTotalFromItems, 2, ',', ' ')); ?> €</td>
+                    <td><?php echo htmlspecialchars(number_format($grossTotalFromItems, 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <tr>
                     <th>Réduction :</th>
-                    <td><?php echo htmlspecialchars(number_format((float)($sale['discount_amount'] ?? 0), 2, ',', ' ')); ?> €</td>
+                    <td><?php echo htmlspecialchars(number_format((float)($sale['discount_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <tr>
                     <th style="font-size: 1.1em;">Total Net à Payer :</th>
-                    <td style="font-size: 1.1em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?> €</td>
+                    <td style="font-size: 1.1em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <tr>
                     <th>Montant Déjà Payé :</th>
-                    <td style="color: green;"><?php echo htmlspecialchars(number_format((float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €</td>
+                    <td style="color: green;"><?php echo htmlspecialchars(number_format((float)($sale['paid_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 </tr>
                 <tr>
                     <th style="font-weight: bold; color: <?php echo (((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0)) > 0.009) ? 'red' : 'green'; ?>;">
                         Solde Restant Dû :
                     </th>
                     <td style="font-weight: bold; color: <?php echo (((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0)) > 0.009) ? 'red' : 'green'; ?>;">
-                        <?php echo htmlspecialchars(number_format((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €
+                        <?php echo htmlspecialchars(number_format((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?>
                     </td>
                 </tr>
+                <?php if ($sale['payment_type'] === 'immediate' && $sale['payment_status'] === 'paid'): ?>
+                    <?php if (isset($sale['amount_tendered']) && $sale['amount_tendered'] !== null): ?>
+                    <tr>
+                        <th>Montant Versé :</th>
+                        <td><?php echo htmlspecialchars(number_format((float)$sale['amount_tendered'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if (isset($sale['change_due']) && $sale['change_due'] !== null): ?>
+                    <tr>
+                        <th>Monnaie Rendue :</th>
+                        <td><?php echo htmlspecialchars(number_format((float)$sale['change_due'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                    </tr>
+                    <?php endif; ?>
+                <?php endif; ?>
             </table>
         </div>
 

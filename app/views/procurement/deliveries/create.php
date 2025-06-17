@@ -142,7 +142,7 @@
                     <td>
                         <input type="number" name="items[<?php echo $idx; ?>][quantity_received]" class="quantity-input"
                                value="<?php echo htmlspecialchars($item['quantity_received'] ?? ($item['quantity_pending'] ?? 1)); ?>"
-                               min="0" <?php // Allow 0 for initial state if PO item is fully received but row is still shown ?>
+                               min="0" step="any" <?php // Allow 0 for initial state if PO item is fully received but row is still shown ?>
                                <?php if(isset($item['quantity_pending'])): ?>max="<?php echo htmlspecialchars($item['quantity_pending']); ?>"<?php endif; ?>
                                required data-index="<?php echo $idx; ?>">
                     </td>

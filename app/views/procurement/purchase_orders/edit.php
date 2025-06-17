@@ -110,7 +110,7 @@
                             <?php /* If $currentProductId is set, JS's 'change' event on product select will populate this. */?>
                         </select>
                     </td>
-                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_ordered]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_ordered'] ?? '1'); ?>" min="1" required data-index="<?php echo $idx; ?>"></td>
+                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_ordered]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_ordered'] ?? '1'); ?>" min="1" step="any" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="text" class="subtotal-display" value="<?php echo htmlspecialchars(isset($item['sub_total']) ? number_format((float)$item['sub_total'], 2, '.', '') : '0.00'); ?>" readonly tabindex="-1"></td>
                     <td><button type="button" class="remove-item-btn button-danger">Supprimer</button></td>
@@ -120,7 +120,7 @@
         </table>
         <button type="button" id="addItemBtn" class="button">Ajouter un article</button>
         <div class="form-group" style="text-align:right; margin-top:10px;">
-            <strong>Montant total de la commande: <span id="totalAmountDisplay"><?php echo htmlspecialchars(number_format($purchaseOrder['total_amount'], 2)); ?></span></strong>
+            <strong>Montant total de la commande: <span id="totalAmountDisplay"><?php echo htmlspecialchars(number_format((float)$purchaseOrder['total_amount'], 2, ',', ' ')); ?></span> <?php echo APP_CURRENCY_SYMBOL; ?></strong>
         </div>
     </fieldset>
 

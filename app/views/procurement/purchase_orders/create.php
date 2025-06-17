@@ -92,23 +92,20 @@
                         </select>
                     </td>
                     <td>
-                        <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>">
-                            <option value="">Sélectionnez d'abord un produit</option>
-                            <?php if(isset($item['product_id']) && !empty($item['product_id'])): ?>
-                                <?php
-                                // This repopulation is basic. It assumes $units contains all possible units.
-                                // A better way would be for the controller to provide specific units for the selected product.
-                                // Or for the JS to handle repopulation if product_id is set.
-                                foreach ($units as $unit): ?>
-                                    <option value="<?php echo htmlspecialchars($unit['id']); ?>"
-                                            <?php echo (isset($item['unit_id']) && $item['unit_id'] == $unit['id']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($unit['name'] . ' (' . $unit['symbol'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                        <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>" data-selected-unit-id="<?php echo htmlspecialchars($item['unit_id'] ?? ''); ?>">
+                            <option value="">Sélectionnez un produit d'abord</option>
+                            <?php
+                            // Repopulation logic for unit_id if form is re-displayed with errors
+                            // The actual population of options is handled by JS based on product selection.
+                            // However, if a unit_id was previously selected for this item,
+                            // the JS will use data-selected-unit-id to re-select it after populating options.
+                            // So, we just need to ensure the select tag itself is here.
+                            // If productUnitsMap and $item['product_id'] are available, we could pre-render options,
+                            // but the JS will overwrite anyway. Simpler to let JS handle all option population.
+                            ?>
                         </select>
                     </td>
-                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_ordered]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_ordered'] ?? '1'); ?>" min="1" required data-index="<?php echo $idx; ?>"></td>
+                    <td><input type="number" name="items[<?php echo $idx; ?>][quantity_ordered]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_ordered'] ?? '1'); ?>" min="1" step="any" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
                     <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
                     <td><button type="button" class="remove-item-btn button-danger">Supprimer</button></td>
@@ -118,7 +115,7 @@
         </table>
         <button type="button" id="addItemBtn" class="button">Ajouter un article</button>
         <div class="form-group" style="text-align:right; margin-top:10px;">
-            <strong>Montant total de la commande: <span id="totalAmountDisplay">0.00</span></strong>
+            <strong>Montant total de la commande: <span id="totalAmountDisplay">0.00</span> <?php echo APP_CURRENCY_SYMBOL; ?></strong>
         </div>
     </fieldset>
 
@@ -186,46 +183,54 @@ document.addEventListener('DOMContentLoaded', function () {
             unitSelect.innerHTML = ''; // Clear existing options
 
             const productId = this.value;
-            const productEntry = productsData.find(p => p.id == productId); // Basic product info
+            const productEntry = productsData.find(p => p.id == productId);
             const unitsForProduct = productUnitsMap[productId] || [];
+            const preSelectedUnitId = unitSelect.dataset.selectedUnitId; // Get value from data attribute
 
-            if (productEntry) {
-                if (unitsForProduct.length > 0) {
-                    unitsForProduct.forEach(pu => {
-                        const option = document.createElement('option');
-                        option.value = pu.unit_id; // unit_id from product_units join
-                        option.textContent = `${pu.name} (${pu.symbol})`;
-                        // Select base unit by default (assuming conversion_factor 1 is base)
-                        // or if it's the only unit, or if it matches the product's base_unit_id
-                        if (parseFloat(pu.conversion_factor_to_base_unit) === 1.0 || productEntry.base_unit_id == pu.unit_id) {
-                            option.selected = true;
-                        }
-                        unitSelect.appendChild(option);
-                    });
-                } else {
-                    // Fallback: if productUnitsMap didn't have this product or it had no units (e.g. base unit not in product_units)
-                    // This case should be rare if data is consistent.
-                    // We can try to use the product's base_unit_id from productsData if available
-                    if (productEntry.base_unit_id && productEntry.base_unit_name) {
-                         const option = document.createElement('option');
-                         option.value = productEntry.base_unit_id;
-                         option.textContent = productEntry.base_unit_name;
-                         option.selected = true;
-                         unitSelect.appendChild(option);
-                    } else {
-                        unitSelect.innerHTML = '<option value="">Aucune unité configurée</option>';
-                    }
+            unitSelect.innerHTML = ''; // Clear existing options
+
+            if (productEntry && unitsForProduct.length > 0) {
+                unitsForProduct.forEach(pu => {
+                    const option = document.createElement('option');
+                    option.value = pu.unit_id;
+                    option.textContent = `${pu.name} (${pu.symbol})`;
+                    unitSelect.appendChild(option);
+                });
+
+                // Attempt to re-select the previously selected unit, or default to base unit
+                if (preSelectedUnitId && unitsForProduct.some(pu => pu.unit_id == preSelectedUnitId)) {
+                    unitSelect.value = preSelectedUnitId;
+                } else if (productEntry.base_unit_id && unitsForProduct.some(pu => pu.unit_id == productEntry.base_unit_id)) {
+                    unitSelect.value = productEntry.base_unit_id;
+                } else if (unitsForProduct.length > 0) {
+                    // If base_unit_id isn't in the list for some reason, select the first one.
+                    // This might happen if base_unit is not explicitly in product_units for that product (which it should be)
+                    unitSelect.value = unitsForProduct[0].unit_id;
                 }
+
+            } else if (productEntry && productEntry.base_unit_id && productEntry.base_unit_name) {
+                // Fallback if unitsForProduct is empty but product has a base unit defined
+                const option = document.createElement('option');
+                option.value = productEntry.base_unit_id;
+                option.textContent = productEntry.base_unit_name;
+                unitSelect.appendChild(option);
+                unitSelect.value = productEntry.base_unit_id;
             } else {
-                 unitSelect.innerHTML = '<option value="">Sélectionnez un produit</option>';
+                unitSelect.innerHTML = '<option value="">Aucune unité disponible</option>';
             }
             calculateTotalAmount();
         });
 
-        // Trigger change on existing product selects to populate units if a product is already selected (e.g. on error repopulation)
-        if(productSelect.value){
+        // Trigger change on existing product selects to populate units and re-select if applicable
+        // This is crucial for form repopulation on validation errors
+        if (productSelect.value) {
             productSelect.dispatchEvent(new Event('change'));
+        } else {
+            // If no product is selected (e.g. an empty row from server-side for initial display)
+            // ensure unit select is cleared or has a default placeholder
+            unitSelect.innerHTML = '<option value="">Sélectionnez un produit d\'abord</option>';
         }
+
 
         row.querySelector('.remove-item-btn').addEventListener('click', function() {
             if (itemsTbody.querySelectorAll('.item-row').length > 1) {

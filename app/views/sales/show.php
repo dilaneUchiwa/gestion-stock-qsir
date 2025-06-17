@@ -46,20 +46,20 @@ if (isset($_GET['status'])) {
             <?php endif; ?>
         </td>
     </tr>
-    <tr><th>Sous-Total Articles :</th><td><?php echo htmlspecialchars(number_format((float)($sale['total_amount'] + ($sale['discount_amount'] ?? 0)), 2, ',', ' ')); ?> €</td></tr>
-    <tr><th>Réduction :</th><td><?php echo htmlspecialchars(number_format((float)($sale['discount_amount'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
-    <tr><th>Montant Net :</th><td style="font-weight:bold;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?> €</td></tr>
+    <tr><th>Sous-Total Articles :</th><td><?php echo htmlspecialchars(number_format((float)($sale['total_amount'] + ($sale['discount_amount'] ?? 0)), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
+    <tr><th>Réduction :</th><td><?php echo htmlspecialchars(number_format((float)($sale['discount_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
+    <tr><th>Montant Net :</th><td style="font-weight:bold;"><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
     <tr><th>Type de paiement :</th><td><?php echo htmlspecialchars(ucfirst($sale['payment_type'])); ?></td></tr>
     <tr><th>Statut du paiement :</th><td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $sale['payment_status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></span></td></tr>
     <?php if ($sale['payment_type'] === 'deferred'): ?>
-        <tr><th>Montant Payé :</th><td style="color: green;"><?php echo htmlspecialchars(number_format((float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
+        <tr><th>Montant Payé :</th><td style="color: green;"><?php echo htmlspecialchars(number_format((float)($sale['paid_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
         <tr><th>Solde Restant :</th><td style="font-weight: bold; color: <?php echo (((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0)) > 0) ? 'red' : 'green'; ?>;">
-            <?php echo htmlspecialchars(number_format((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0), 2, ',', ' ')); ?> €
+            <?php echo htmlspecialchars(number_format((float)$sale['total_amount'] - (float)($sale['paid_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?>
         </td></tr>
         <tr><th>Date d'échéance :</th><td><?php echo htmlspecialchars($sale['due_date'] ?? 'N/A'); ?></td></tr>
     <?php elseif ($sale['payment_type'] === 'immediate'): ?>
-        <tr><th>Montant Versé :</th><td><?php echo htmlspecialchars(number_format((float)($sale['amount_tendered'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
-        <tr><th>Monnaie Rendue :</th><td><?php echo htmlspecialchars(number_format((float)($sale['change_due'] ?? 0), 2, ',', ' ')); ?> €</td></tr>
+        <tr><th>Montant Versé :</th><td><?php echo htmlspecialchars(number_format((float)($sale['amount_tendered'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
+        <tr><th>Monnaie Rendue :</th><td><?php echo htmlspecialchars(number_format((float)($sale['change_due'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td></tr>
     <?php endif; ?>
     <tr><th>Date de dernier paiement :</th><td><?php echo htmlspecialchars($sale['payment_date'] ?? 'N/A'); ?></td></tr>
     <tr><th>Remarques :</th><td><?php echo nl2br(htmlspecialchars($sale['notes'] ?? 'N/A')); ?></td></tr>
@@ -89,15 +89,15 @@ if (isset($_GET['status'])) {
                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                 <td><?php echo htmlspecialchars($item['unit_name'] . ' (' . $item['unit_symbol'] . ')'); ?></td>
                 <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['quantity_sold'], 3, ',', ' ')); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['sub_total'], 2, ',', ' ')); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['unit_price'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$item['sub_total'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
                 <th colspan="5" style="text-align:right;">Total général :</th>
-                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')); ?></strong></td>
+                <td style="text-align: right;"><strong><?php echo htmlspecialchars(number_format((float)$sale['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></strong></td>
             </tr>
         </tfoot>
     </table>
@@ -124,7 +124,7 @@ if (!empty($payments_history)):
             <?php foreach ($payments_history as $payment): ?>
             <tr>
                 <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($payment['payment_date']))); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$payment['amount_paid'], 2, ',', ' ')); ?> €</td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$payment['amount_paid'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td><?php echo htmlspecialchars($payment['payment_method']); ?></td>
                 <td><?php echo nl2br(htmlspecialchars($payment['notes'] ?? '')); ?></td>
                 <td>

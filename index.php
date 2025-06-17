@@ -7,6 +7,10 @@ error_reporting(E_ALL);
 
 define('ROOT_PATH',__DIR__);
 
+// Load application configuration
+$appConfig = require_once ROOT_PATH . '/config/app.php';
+define('APP_CURRENCY_SYMBOL', $appConfig['currency_symbol']);
+
 // Autoload Core Classes (simple autoloader)
 spl_autoload_register(function ($className) {
     $corePath = ROOT_PATH . '/core/' . $className . '.php';

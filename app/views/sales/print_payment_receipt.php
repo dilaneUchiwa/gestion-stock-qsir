@@ -52,7 +52,7 @@
         <?php endif; ?>
 
         <div class="payment-details">
-            <p><span class="label">Montant Payé :</span> <span style="font-size: 1.2em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($payment['amount_paid'] ?? 0), 2, ',', ' ')); ?> €</span></p>
+            <p><span class="label">Montant Payé :</span> <span style="font-size: 1.2em; font-weight: bold;"><?php echo htmlspecialchars(number_format((float)($payment['amount_paid'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></span></p>
             <p><span class="label">Méthode de Paiement :</span> <?php echo htmlspecialchars($payment['payment_method'] ?? 'N/A'); ?></p>
             <?php if (!empty($payment['notes'])): ?>
                 <p><span class="label">Remarques :</span> <?php echo nl2br(htmlspecialchars($payment['notes'])); ?></p>
@@ -62,9 +62,10 @@
 
         <?php if (!empty($sale)): ?>
         <div class="balance-details">
-            <p><span class="label">Montant Total de la Facture :</span> <?php echo htmlspecialchars(number_format((float)($sale['total_amount'] ?? 0), 2, ',', ' ')); ?> €</p>
-            <p><span class="label">Total Payé (après ce reçu) :</span> <?php echo htmlspecialchars(number_format((float)($totalPaidUpToThisReceipt ?? 0), 2, ',', ' ')); ?> €</p>
-            <p><span class="label">Solde Restant Dû :</span> <span style="font-weight: bold; color: <?php echo ($balanceDueAfterThisReceipt > 0.009) ? 'red' : 'green'; ?>;"><?php echo htmlspecialchars(number_format((float)($balanceDueAfterThisReceipt ?? 0), 2, ',', ' ')); ?> €</span></p>
+            <p><span class="label">Montant Total de la Facture :</span> <?php echo htmlspecialchars(number_format((float)($sale['total_amount'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
+            <p><span class="label">Total Payé (après ce reçu) :</span> <?php echo htmlspecialchars(number_format((float)($totalPaidUpToThisReceipt ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
+            <p><span class="label">Solde Restant Dû (après ce reçu) :</span> <span style="font-weight: bold; color: <?php echo ($balanceDueAfterThisReceipt > 0.009) ? 'red' : 'green'; ?>;"><?php echo htmlspecialchars(number_format((float)($balanceDueAfterThisReceipt ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></span></p>
+            <p><span class="label">Statut Global de la Facture :</span> <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $sale['payment_status']))); ?></p>
         </div>
         <hr>
         <?php endif; ?>

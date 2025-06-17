@@ -51,7 +51,7 @@ if (isset($_GET['status'])) {
                 <td><?php echo htmlspecialchars($invoice['supplier_name']); ?></td>
                 <td><?php echo htmlspecialchars($invoice['invoice_date']); ?></td>
                 <td><?php echo htmlspecialchars($invoice['due_date'] ?? 'N/A'); ?></td>
-                <td style="text-align: right;"><?php echo htmlspecialchars(number_format($invoice['total_amount'], 2)); ?></td>
+                <td style="text-align: right;"><?php echo htmlspecialchars(number_format((float)$invoice['total_amount'], 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></td>
                 <td><span class="status-<?php echo htmlspecialchars(strtolower(str_replace('_', '-', $invoice['status']))); ?>"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $invoice['status']))); ?></span></td>
                 <td><?php echo htmlspecialchars($invoice['payment_date'] ?? 'N/A'); ?></td>
                 <td>
