@@ -64,31 +64,23 @@ class FractioningController extends Controller {
 
         $errors = [];
 
-        // Validation
+        // Basic Validation
         if (empty($sourceProductId)) $errors['source_product_id'] = "Produit source requis.";
         if (empty($sourceUnitId)) $errors['source_unit_id'] = "Unité source requise.";
         if ($sourceQuantityToFraction <= 0) $errors['source_quantity_to_fraction'] = "Quantité à fractionner doit être positive.";
         if (empty($targetUnitId)) $errors['target_unit_id'] = "Unité cible requise.";
-        // if ($targetQuantityPerSourceUnit <= 0) $errors['target_quantity_per_source_unit'] = "Quantité cible par unité source doit être positive.";
 
-        $sourceProduct = null;
-        if ($sourceProductId) {
+        // For success message, we still need to calculate the target quantity.
+        // This calculation is now duplicated here temporarily for the message.
+        // Ideally, fractionProduct could return this, or it's accepted that the message might not have it
+        // if the controller is to be fully relieved of this calculation.
+        // For now, let's keep the calculation for the success message.
+        $calculatedTargetQuantityInTargetUnit = 0;
+        if (empty($errors)) {
             $sourceProduct = $this->productModel->getById($sourceProductId);
-            if (!$sourceProduct) $errors['source_product_id'] = "Produit source non trouvé.";
-            else if (!$this->productModel->isUnitValidForProduct($sourceProductId, $sourceUnitId)) {
-                 $errors['source_unit_id'] = "Unité source invalide pour le produit source.";
-            }
-        }
-
-        $targetProduct = $sourceProduct; // V1: target is same as source
-        if ($targetProductId && !$this->productModel->isUnitValidForProduct($targetProductId, $targetUnitId)) {
-            $errors['target_unit_id'] = "Unité cible invalide pour le produit cible.";
-        }
-
-        // Check stock availability
-        $sourceQtyInBaseUnit = 0;
-        if ($sourceProduct && $sourceUnitId && $sourceQuantityToFraction > 0) {
             $sourceProductUnits = $this->productModel->getUnitsForProduct($sourceProductId);
+            $targetProductUnits = $this->productModel->getUnitsForProduct($targetProductId); // Assuming targetProductId = sourceProductId
+
             $sourceConversionFactor = null;
             foreach($sourceProductUnits as $pu) {
                 if ($pu['unit_id'] == $sourceUnitId) {
@@ -96,20 +88,7 @@ class FractioningController extends Controller {
                     break;
                 }
             }
-            if ($sourceConversionFactor === null) {
-                $errors['source_unit_id'] = "Facteur de conversion introuvable pour l'unité source.";
-            } else {
-                $sourceQtyInBaseUnit = $sourceQuantityToFraction * $sourceConversionFactor;
-                if ($sourceProduct['quantity_in_stock'] < $sourceQtyInBaseUnit) {
-                    $errors['source_quantity_to_fraction'] = "Stock insuffisant. Stock actuel: " . ($sourceProduct['quantity_in_stock'] / $sourceConversionFactor) . " " . ($sourceProductUnits[array_search($sourceUnitId, array_column($sourceProductUnits, 'unit_id'))]['name'] ?? 'unité(s) source') . ". Nécessaire: " . $sourceQuantityToFraction;
-                }
-            }
-        }
 
-        // Calculate target quantity
-        $calculatedTargetQuantityInTargetUnit = 0;
-        if(empty($errors) && $targetProduct && $targetUnitId) {
-            $targetProductUnits = $this->productModel->getUnitsForProduct($targetProductId);
             $targetConversionFactor = null;
             foreach($targetProductUnits as $pu){
                 if($pu['unit_id'] == $targetUnitId){
@@ -117,75 +96,27 @@ class FractioningController extends Controller {
                     break;
                 }
             }
-            if($targetConversionFactor === null || $targetConversionFactor == 0){
-                $errors['target_unit_id'] = "Facteur de conversion introuvable ou invalide pour l'unité cible.";
-            } else {
-                // Quantity to decrease from source (in base unit) is $sourceQtyInBaseUnit
-                // This same quantity in base unit will be added to target (since target product is same as source)
-                // So, we need to convert this $sourceQtyInBaseUnit to the target_unit_id
-                $calculatedTargetQuantityInTargetUnit = $sourceQtyInBaseUnit / $targetConversionFactor;
+
+            if ($sourceConversionFactor === null || $sourceConversionFactor <= 0) {
+                $errors['source_unit_id'] = "Facteur de conversion invalide ou introuvable pour l'unité source.";
+            }
+            if ($targetConversionFactor === null || $targetConversionFactor <= 0) {
+                $errors['target_unit_id'] = "Facteur de conversion invalide ou introuvable pour l'unité cible.";
+            }
+
+            if (empty($errors) && $sourceProduct) {
+                 $sourceQtyInBaseUnit = $sourceQuantityToFraction * $sourceConversionFactor;
+                 $calculatedTargetQuantityInTargetUnit = $sourceQtyInBaseUnit / $targetConversionFactor;
+                 if ($calculatedTargetQuantityInTargetUnit <= 0) {
+                     $errors['general'] = "La quantité cible calculée est nulle ou négative. Vérifiez les unités et facteurs.";
+                 }
+            } elseif (!$sourceProduct && empty($errors['source_product_id'])) {
+                 $errors['source_product_id'] = "Produit source non trouvé (pour calcul quantité cible).";
             }
         }
-
 
         if (!empty($errors)) {
-            $products = $this->productModel->getAll();
-            $allUnits = $this->unitModel->getAll();
-            $productUnitsMap = [];
-            foreach ($products as $product) {
-                $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
-            }
-            $this->renderView('fractioning/create', [
-                'title' => 'Fractionner un Produit',
-                'products' => $products,
-                'allUnits' => $allUnits,
-                'productUnitsMap' => $productUnitsMap,
-                'data' => $_POST, // Repopulate form with submitted data
-                'errors' => $errors
-            ]);
-            return;
-        }
-
-        // Start Transaction
-        $this->productModel->getPdo()->beginTransaction(); // Access PDO instance from one of the models
-
-        try {
-            // 1. Decrease stock of source product
-            $notesSource = "Fractionnement: sortie de {$sourceQuantityToFraction} " . ($this->unitModel->getById($sourceUnitId)['symbol'] ?? '');
-            $stockUpdateSource = $this->productModel->updateStock(
-                $sourceProductId,
-                'split_out', // movementType
-                -$sourceQuantityToFraction, // NEGATIVE quantityInTransactionUnit
-                $sourceUnitId,
-                null, null, $notesSource
-            );
-
-            if (!$stockUpdateSource) {
-                throw new Exception("Échec de la mise à jour du stock source.");
-            }
-
-            // 2. Increase stock of target product
-            $notesTarget = "Fractionnement: entrée de {$calculatedTargetQuantityInTargetUnit} " . ($this->unitModel->getById($targetUnitId)['symbol'] ?? '');
-            $stockUpdateTarget = $this->productModel->updateStock(
-                $targetProductId,
-                'split_in', // movementType
-                $calculatedTargetQuantityInTargetUnit, // POSITIVE quantityInTransactionUnit
-                $targetUnitId,
-                null, null, $notesTarget
-            );
-
-            if (!$stockUpdateTarget) {
-                throw new Exception("Échec de la mise à jour du stock cible.");
-            }
-
-            $this->productModel->getPdo()->commit();
-            header("Location: /index.php?url=fractioning/index&status=success&from_qty={$sourceQuantityToFraction}&from_unit={$sourceUnitId}&to_qty={$calculatedTargetQuantityInTargetUnit}&to_unit={$targetUnitId}&prod_id={$sourceProductId}");
-            exit;
-
-        } catch (Exception $e) {
-            $this->productModel->getPdo()->rollBack();
-            error_log("Fractioning error: " . $e->getMessage());
-
+            // Common setup for rendering form with errors
             $products = $this->productModel->getAll();
             $allUnits = $this->unitModel->getAll();
             $productUnitsMap = [];
@@ -198,10 +129,49 @@ class FractioningController extends Controller {
                 'allUnits' => $allUnits,
                 'productUnitsMap' => $productUnitsMap,
                 'data' => $_POST,
-                'errors' => ['general' => "Erreur lors du fractionnement: " . $e->getMessage()]
+                'errors' => $errors
+            ]);
+            return;
+        }
+
+        // Call the new model method
+        $result = $this->productModel->fractionProduct(
+            (int)$sourceProductId,
+            (int)$sourceUnitId,
+            (float)$sourceQuantityToFraction,
+            (int)$targetUnitId
+        );
+
+        if ($result === true) {
+            // Fractionation was successful.
+            // $calculatedTargetQuantityInTargetUnit should be available from the calculation block above.
+            // Ensure source_unit_id and target_unit_id in POST are the IDs, not names/symbols for the message.
+            // Fetch names/symbols if needed for a more descriptive message, or ensure they are passed if required.
+            $sourceUnitName = $this->unitModel->getById($sourceUnitId)['name'] ?? $sourceUnitId;
+            $targetUnitName = $this->unitModel->getById($targetUnitId)['name'] ?? $targetUnitId;
+
+            header("Location: /index.php?url=fractioning/index&status=success&from_qty=" . urlencode($_POST['source_quantity_to_fraction']) . "&from_unit_name=" . urlencode($sourceUnitName) . "&to_qty=" . urlencode(number_format($calculatedTargetQuantityInTargetUnit, 3, '.', '')) . "&to_unit_name=" . urlencode($targetUnitName) . "&prod_id=" . urlencode($_POST['source_product_id']));
+            exit;
+        } else {
+            // An error message string was returned from fractionProduct
+            $errors['general'] = $result;
+
+            // Common setup for rendering form with errors
+            $products = $this->productModel->getAll();
+            $allUnits = $this->unitModel->getAll();
+            $productUnitsMap = [];
+            foreach ($products as $product) {
+                $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+            }
+            $this->renderView('fractioning/create', [
+                'title' => 'Fractionner un Produit',
+                'products' => $products,
+                'allUnits' => $allUnits,
+                'productUnitsMap' => $productUnitsMap,
+                'data' => $_POST,
+                'errors' => $errors
             ]);
         }
     }
 }
-
 ?>

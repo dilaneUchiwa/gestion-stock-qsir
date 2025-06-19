@@ -55,11 +55,6 @@
     <fieldset>
         <legend>Tarification et stock</legend>
         <div class="form-group">
-            <label for="quantity_in_stock">Quantité initiale en stock (en unité de base)</label>
-            <input type="number" name="quantity_in_stock" id="quantity_in_stock" value="<?php echo htmlspecialchars($data['quantity_in_stock'] ?? '0'); ?>" min="0">
-            <small>Sera enregistrée dans l'unité de base sélectionnée. Cela créera un mouvement de 'stock_initial'.</small>
-        </div>
-        <div class="form-group">
             <label for="purchase_price">Prix d'achat</label>
             <input type="number" name="purchase_price" id="purchase_price" value="<?php echo htmlspecialchars($data['purchase_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>

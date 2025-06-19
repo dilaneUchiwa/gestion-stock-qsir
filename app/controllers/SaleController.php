@@ -109,13 +109,12 @@ class SaleController extends Controller {
             if (isset($_POST['items']) && is_array($_POST['items'])) {
                 foreach ($_POST['items'] as $item) {
                     if (!empty($item['product_id']) && !empty($item['unit_id']) &&
-                        isset($item['quantity_sold']) && (float)$item['quantity_sold'] > 0 &&
-                        isset($item['unit_price']) && is_numeric($item['unit_price'])) { // Ensure unit_price is numeric
+                        isset($item['quantity_sold']) && (float)$item['quantity_sold'] > 0) {
+                        // unit_price is removed from here; Sale model will calculate it.
                         $itemsData[] = [
                             'product_id' => (int)$item['product_id'],
                             'unit_id' => (int)$item['unit_id'],
                             'quantity_sold' => (float)$item['quantity_sold'],
-                            'unit_price' => (float)$item['unit_price'],
                         ];
                     }
                 }
@@ -123,34 +122,35 @@ class SaleController extends Controller {
 
             // Validation
             $errors = [];
-            // Gross total calculation (server-side)
-            $grossTotal = 0;
-            foreach ($itemsData as $item) {
-                $grossTotal += $item['quantity_sold'] * $item['unit_price'];
-            }
+            // Gross total calculation is removed from controller. Sale model handles it.
 
             if ($data['discount_amount'] < 0) {
                 $errors['discount_amount'] = "Le montant de la réduction ne peut pas être négatif.";
             }
-            if ($data['discount_amount'] > $grossTotal) {
-                $errors['discount_amount'] = "La réduction ne peut pas excéder le total brut des articles (" . number_format($grossTotal, 2) . ").";
-            }
+            // The validation for $data['discount_amount'] > $grossTotal is removed from controller.
+            // Sale model is now responsible for ensuring total_amount is correct.
+            // $netTotalPayable will be determined by the model.
+            // For immediate payments, the amount_tendered check needs netTotalPayable,
+            // but this will be an issue if netTotalPayable is only known after model call.
+            // This suggests either:
+            // 1. Controller still calculates a preliminary netTotal for UI validation of amount_tendered,
+            //    but model's calculation is the final one.
+            // 2. Or, amount_tendered validation against final net is done in model, or not at all before model call.
+            // For this step, we'll simplify and assume the model handles final amount logic.
+            // The controller-side check for amount_tendered might be less precise or removed if it causes issues.
 
-            $netTotalPayable = $grossTotal - $data['discount_amount'];
-            $data['total_amount'] = $netTotalPayable; // This is what will be stored in sales.total_amount
-
-            if ($paymentType === 'immediate') {
-                if ($data['amount_tendered'] === null || $data['amount_tendered'] < $netTotalPayable) {
-                    $errors['amount_tendered'] = "Montant versé insuffisant. Doit être au moins " . number_format($netTotalPayable, 2) . ".";
-                } else {
-                    $data['change_due'] = $data['amount_tendered'] - $netTotalPayable;
-                    if ($data['change_due'] < 0) { // Should be caught by previous check, but good for safety
-                        $errors['change_due'] = "Erreur dans le calcul de la monnaie (montant versé inférieur au net à payer).";
-                    }
-                }
-            } else { // For deferred payment, clear these fields
+            // $data['total_amount'] will be set by the Sale model.
+            // Validation for amount_tendered and calculation of change_due for immediate payments
+            // are now primarily handled by the Sale model.
+            // The controller still passes amount_tendered if provided.
+            if ($paymentType === 'deferred') { // For deferred payment, ensure these are null if not applicable
                 $data['amount_tendered'] = null;
                 $data['change_due'] = null;
+            } else { // For immediate payment
+                // Ensure amount_tendered is at least passed as null if not set, model will handle defaults or errors.
+                // The controller previously had logic here to check if amount_tendered was sufficient.
+                // This is now removed as the model handles it.
+                // $data['change_due'] will also be determined by the model.
             }
 
             if (empty($data['client_id']) && empty($data['client_name_occasional'])) {
@@ -176,32 +176,8 @@ class SaleController extends Controller {
                     $productInfo = $this->productModel->getById($item['product_id']);
                     $unitInfo = $this->unitModel->getById($item['unit_id']);
                     $errors["item_{$idx}_unit_id"] = "L'unité '".($unitInfo['name'] ?? $item['unit_id'])."' n'est pas valide pour le produit '".($productInfo['name'] ?? $item['product_id'])."'.";
-                    continue; // Skip stock check if unit is invalid
                 }
-
-                // Stock availability check (pre-validation before calling model's createSale)
-                $productDetails = $this->productModel->getById($item['product_id']); // Fetches quantity_in_stock in base unit
-                $quantitySoldInBaseUnit = (float)$item['quantity_sold'];
-                if ($item['unit_id'] != $productDetails['base_unit_id']) {
-                    $productUnits = $this->productModel->getUnitsForProduct($item['product_id']);
-                    $conversionFactor = null;
-                    foreach ($productUnits as $pu) {
-                        if ($pu['unit_id'] == $item['unit_id']) {
-                            $conversionFactor = (float)$pu['conversion_factor_to_base_unit'];
-                            break;
-                        }
-                    }
-                    if ($conversionFactor === null || $conversionFactor == 0) {
-                        $errors["item_{$idx}_unit_conversion"] = "Erreur de conversion d'unité pour le produit {$productDetails['name']}.";
-                        continue; // Skip stock check
-                    }
-                    $quantitySoldInBaseUnit *= $conversionFactor;
-                }
-
-                if ($productDetails['quantity_in_stock'] < $quantitySoldInBaseUnit) {
-                    $unitInfo = $this->unitModel->getById($item['unit_id']);
-                    $errors["item_{$idx}_stock"] = "Stock insuffisant pour {$productDetails['name']}. Demandé (en unité de base): {$quantitySoldInBaseUnit}, Disponible: {$productDetails['quantity_in_stock']}.";
-                }
+                // Controller-side stock check is removed. Sale model handles this.
             }
 
 
@@ -211,15 +187,20 @@ class SaleController extends Controller {
                 return;
             }
 
-            $saleIdOrError = $this->saleModel->createSale($data, $itemsData);
+            // $result will be an array ['sale_id' => ..., 'net_total_amount' => ...] on success,
+            // or string/false on error.
+            $result = $this->saleModel->createSale($data, $itemsData);
 
-            if (is_numeric($saleIdOrError)) {
-                header("Location: /index.php?url=sale/show/{$saleIdOrError}&status=created_success");
+            if (is_array($result) && isset($result['sale_id'])) {
+                $saleId = $result['sale_id'];
+                // $netTotalAmount = $result['net_total_amount']; // Available if needed for further controller logic
+                header("Location: /index.php?url=sale/show/{$saleId}&status=created_success");
                 exit;
             } else {
-                // An error message string was returned (e.g. "Insufficient stock...")
-                $errors['general'] = $saleIdOrError ?: 'Échec de la création de la vente. Vérifiez le stock ou d\'autres détails.';
-                $this->_renderCreateForm($paymentType, array_merge($_POST, $data), $errors, $itemsData);
+                // Error from createSale (string or false)
+                $errors['general'] = is_string($result) ? $result : 'Échec de la création de la vente. Vérifiez les détails.';
+                // Repass original $_POST data for form repopulation to avoid issues with model-modified $data
+                $this->_renderCreateForm($paymentType, $_POST, $errors, $itemsData);
             }
         } else {
             // Redirect to a default creation form if accessed via GET or wrong method

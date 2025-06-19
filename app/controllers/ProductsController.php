@@ -69,7 +69,6 @@ class ProductsController extends Controller {
                 'description' => $_POST['description'] ?? '',
                 'category_id' => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
                 'base_unit_id' => !empty($_POST['base_unit_id']) ? (int)$_POST['base_unit_id'] : null,
-                'quantity_in_stock' => isset($_POST['quantity_in_stock']) && $_POST['quantity_in_stock'] !== '' ? (int)$_POST['quantity_in_stock'] : 0,
                 'purchase_price' => isset($_POST['purchase_price']) && $_POST['purchase_price'] !== '' ? (float)$_POST['purchase_price'] : null,
                 'selling_price' => isset($_POST['selling_price']) && $_POST['selling_price'] !== '' ? (float)$_POST['selling_price'] : null,
             ];
@@ -119,19 +118,6 @@ class ProductsController extends Controller {
                             }
                         }
                     }
-                }
-
-                // Initial stock movement (if quantity provided)
-                // ProductModel->create now handles setting product.quantity_in_stock
-                // This movement is for audit trail.
-                if ($data['quantity_in_stock'] > 0) {
-                    $stockMovementModel = $this->loadModel('StockMovement');
-                    $stockMovementModel->createMovement([
-                        'product_id' => $productId,
-                        'type' => 'initial_stock',
-                        'quantity' => $data['quantity_in_stock'],
-                        'notes' => 'Stock initial défini lors de la création du produit.'
-                    ]);
                 }
 
                 header("Location: /index.php?url=products/show/{$productId}&status=created_success");

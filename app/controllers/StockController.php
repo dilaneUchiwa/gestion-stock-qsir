@@ -6,11 +6,14 @@ class StockController extends Controller {
 
     private $productModel;
     private $stockMovementModel;
+    private $unitModel;
 
     public function __construct() {
         parent::__construct();
+        require_once ROOT_PATH . '/app/models/Unit.php'; // Ensure Unit model is available
         $this->productModel = $this->loadModel('Product');
         $this->stockMovementModel = $this->loadModel('StockMovement');
+        $this->unitModel = $this->loadModel('Unit');
     }
 
     /**
@@ -75,67 +78,128 @@ class StockController extends Controller {
      * For creating manual stock adjustments (adjustment_in, adjustment_out).
      */
     public function create_adjustment() {
-        // This would typically involve:
-        // 1. A form to select product, type of adjustment (in/out), quantity, notes.
-        // 2. Validation.
-        // 3. Calling ProductModel->updateStock() with appropriate parameters, e.g.:
-        //    $productModel->updateStock($productId, $quantity, 'adjustment_in', null, 'stock_adjustments', $notes);
-        // For now, just a placeholder view or redirect.
         $products = $this->productModel->getAll();
+        $allUnits = $this->unitModel->getAll(); // Fetch all units
+        $adjustmentTypes = [
+            'initial_stock' => 'Stock Initial',
+            'adjustment_in' => 'Ajustement Positif (Entrée)',
+            'adjustment_out' => 'Ajustement Négatif (Sortie)'
+        ];
+
         $this->renderView('stock/create_adjustment', [
             'products' => $products,
-            'adjustmentTypes' => ['adjustment_in', 'adjustment_out'], // Example types
-            'title' => 'Créer un ajustement de stock'
+            'allUnits' => $allUnits,
+            'adjustmentTypes' => $adjustmentTypes,
+            'title' => 'Effectuer un ajustement de stock / Stock Initial'
         ]);
     }
 
     public function store_adjustment() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $productId = $_POST['product_id'] ?? null;
-            $adjustmentType = $_POST['adjustment_type'] ?? null; // 'adjustment_in' or 'adjustment_out'
-            $quantity = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 0;
+            $unitId = $_POST['unit_id'] ?? null;
+            $adjustmentTypeKey = $_POST['adjustment_type'] ?? null;
+            $quantityInput = isset($_POST['quantity']) ? (float)$_POST['quantity'] : 0;
             $notes = $_POST['notes'] ?? '';
 
             $errors = [];
+            $adjustmentTypes = [
+                'initial_stock' => 'Stock Initial',
+                'adjustment_in' => 'Ajustement Positif (Entrée)',
+                'adjustment_out' => 'Ajustement Négatif (Sortie)'
+            ];
+
             if (empty($productId)) $errors['product_id'] = "Le produit est requis.";
-            if (empty($adjustmentType) || !in_array($adjustmentType, ['adjustment_in', 'adjustment_out'])) {
+            if (empty($unitId)) $errors['unit_id'] = "L'unité de mesure est requise.";
+            if (empty($adjustmentTypeKey) || !array_key_exists($adjustmentTypeKey, $adjustmentTypes)) {
                 $errors['adjustment_type'] = "Un type d'ajustement valide est requis.";
             }
-            if ($quantity <= 0) $errors['quantity'] = "La quantité doit être un nombre positif.";
+            if ($quantityInput <= 0) $errors['quantity'] = "La quantité doit être un nombre positif.";
 
-            $product = $this->productModel->getById($productId);
-            if (!$product) $errors['product_id'] = "Le produit sélectionné n'a pas été trouvé.";
-
-            if ($adjustmentType === 'adjustment_out' && $product && $product['quantity_in_stock'] < $quantity) {
-                $errors['quantity'] = "La quantité d'ajustement ({$quantity}) dépasse le stock actuel ({$product['quantity_in_stock']}) pour le produit '{$product['name']}'.";
+            $product = null;
+            if ($productId) {
+                $product = $this->productModel->getById($productId);
+                if (!$product) {
+                    $errors['product_id'] = "Le produit sélectionné n'a pas été trouvé.";
+                }
             }
+
+            if ($productId && $unitId && !$this->productModel->isUnitValidForProduct((int)$productId, (int)$unitId)) {
+                $errors['unit_id'] = "L'unité sélectionnée n'est pas valide pour le produit choisi.";
+            }
+
+            $movementType = '';
+            $quantityChange = 0;
+
+            if (empty($errors)) { // Proceed only if basic validations pass
+                switch ($adjustmentTypeKey) {
+                    case 'initial_stock':
+                        $movementType = 'initial_stock';
+                        $quantityChange = $quantityInput;
+                        // For initial stock, we might want to check if stock already exists for this product/unit.
+                        // $existingStock = $this->productModel->getStock((int)$productId, (int)$unitId);
+                        // if ($existingStock > 0) {
+                        //    $errors['initial_stock'] = "Le stock initial pour ce produit et cette unité a déjà été défini. Utilisez un ajustement.";
+                        // }
+                        break;
+                    case 'adjustment_in':
+                        $movementType = 'adjustment_in';
+                        $quantityChange = $quantityInput;
+                        break;
+                    case 'adjustment_out':
+                        $movementType = 'adjustment_out';
+                        $quantityChange = -$quantityInput; // Negative for outgoing stock
+
+                        $currentStockInUnit = $this->productModel->getStock((int)$productId, (int)$unitId);
+                        if ($currentStockInUnit < $quantityInput) {
+                             $errors['quantity'] = "Quantité à sortir ({$quantityInput}) insuffisante. Stock actuel pour cette unité: {$currentStockInUnit}.";
+                        }
+                        break;
+                    default: // Should be caught by array_key_exists, but as a safeguard
+                        $errors['adjustment_type'] = "Type d'ajustement non reconnu.";
+                }
+            }
+
 
             if (!empty($errors)) {
                 $products = $this->productModel->getAll();
+                $allUnits = $this->unitModel->getAll();
                 $this->renderView('stock/create_adjustment', [
                     'products' => $products,
-                    'adjustmentTypes' => ['adjustment_in', 'adjustment_out'],
+                    'allUnits' => $allUnits,
+                    'adjustmentTypes' => $adjustmentTypes,
                     'errors' => $errors,
-                    'data' => $_POST,
-                    'title' => 'Créer un ajustement de stock'
+                    'data' => $_POST, // Repopulate form with submitted data
+                    'title' => 'Effectuer un ajustement de stock / Stock Initial'
                 ]);
                 return;
             }
 
-            $quantityChange = ($adjustmentType === 'adjustment_in') ? $quantity : -$quantity;
+            // Call the new updateStockQuantity method
+            $success = $this->productModel->updateStockQuantity(
+                (int)$productId,
+                (int)$unitId,
+                $quantityChange, // This is already signed correctly
+                $movementType,
+                null, // related_document_id for adjustments is null
+                'stock_adjustments', // related_document_type
+                $notes
+            );
 
-            if ($this->productModel->updateStock($productId, $quantityChange, $adjustmentType, null, 'stock_adjustments', $notes)) {
+            if ($success) {
                 header("Location: /index.php?url=stock/history/{$productId}&status=adjustment_success");
                 exit;
             } else {
-                $errors['general'] = "Échec de la création de l'ajustement de stock.";
-                 $products = $this->productModel->getAll();
+                $errors['general'] = "Échec de la création de l'ajustement de stock. Vérifiez les logs pour plus de détails.";
+                $products = $this->productModel->getAll();
+                $allUnits = $this->unitModel->getAll();
                 $this->renderView('stock/create_adjustment', [
                     'products' => $products,
-                    'adjustmentTypes' => ['adjustment_in', 'adjustment_out'],
+                    'allUnits' => $allUnits,
+                    'adjustmentTypes' => $adjustmentTypes,
                     'errors' => $errors,
                     'data' => $_POST,
-                    'title' => 'Créer un ajustement de stock'
+                    'title' => 'Effectuer un ajustement de stock / Stock Initial'
                 ]);
             }
         } else {
@@ -143,6 +207,5 @@ class StockController extends Controller {
             exit;
         }
     }
-
 }
 ?>

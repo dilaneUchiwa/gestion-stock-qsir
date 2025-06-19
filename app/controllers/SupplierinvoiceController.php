@@ -26,7 +26,7 @@ class SupplierinvoiceController extends Controller {
     }
 
     public function show($id) {
-        $invoice = $this->supplierInvoiceModel->getByIdWithDetails($id);
+        $invoice = $this->supplierInvoiceModel->getByIdWithDetails($id); // This now includes payments
         if ($invoice) {
             $this->renderView('procurement/supplier_invoices/show', [
                 'invoice' => $invoice,
@@ -50,8 +50,6 @@ class SupplierinvoiceController extends Controller {
             if ($delivery) {
                 $defaults['supplier_id'] = $delivery['supplier_id'] ?? ($delivery['purchase_order_id'] ? $this->purchaseOrderModel->getById($delivery['purchase_order_id'])['supplier_id'] : null);
                 $defaults['delivery_id'] = $delivery['id'];
-                // Auto-fill amount from delivery items might be complex if not all items are invoiced.
-                // For now, user enters total amount.
                 if ($delivery['type'] === 'free_sample') {
                      $defaults['warning_message'] = "Avertissement : La livraison liée (LIV-{$deliveryId}) est marquée comme 'Échantillon gratuit'. Typiquement, les échantillons gratuits ne génèrent pas de factures à payer.";
                 }
@@ -62,7 +60,7 @@ class SupplierinvoiceController extends Controller {
             $purchaseOrder = $this->purchaseOrderModel->getById($purchaseOrderId);
             if ($purchaseOrder) {
                 $defaults['supplier_id'] = $purchaseOrder['supplier_id'];
-                $defaults['total_amount'] = $purchaseOrder['total_amount']; // Default to PO total
+                $defaults['total_amount'] = $purchaseOrder['total_amount'];
                 $defaults['purchase_order_id'] = $purchaseOrder['id'];
             } else {
                  $this->renderView('errors/404', ['message' => "Bon de commande avec l'ID {$purchaseOrderId} non trouvé pour la création de la facture."]); return;
@@ -72,7 +70,7 @@ class SupplierinvoiceController extends Controller {
         $suppliers = $this->supplierModel->getAll();
         $this->renderView('procurement/supplier_invoices/create', [
             'suppliers' => $suppliers,
-            'data' => $defaults, // Pre-fill data
+            'data' => $defaults,
             'allowedStatuses' => $this->supplierInvoiceModel->allowedStatuses,
             'title' => 'Créer une facture fournisseur'
         ]);
@@ -137,10 +135,6 @@ class SupplierinvoiceController extends Controller {
     public function edit($id) {
         $invoice = $this->supplierInvoiceModel->getByIdWithDetails($id);
         if ($invoice) {
-            // Prevent editing if fully paid? Business rule.
-            // if ($invoice['status'] === 'paid') {
-            //    $this->renderView('errors/403', ['message' => 'Les factures payées ne peuvent pas être modifiées.']); return;
-            // }
             $suppliers = $this->supplierModel->getAll();
             $this->renderView('procurement/supplier_invoices/edit', [
                 'invoice' => $invoice,
@@ -155,7 +149,6 @@ class SupplierinvoiceController extends Controller {
 
     public function update($id) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Fetch current invoice to prevent status override if not provided in form, or for validation.
             $currentInvoice = $this->supplierInvoiceModel->getByIdWithDetails($id);
             if (!$currentInvoice) {
                 $this->renderView('errors/404', ['message' => "Facture non trouvée pour la mise à jour."]); return;
@@ -169,28 +162,21 @@ class SupplierinvoiceController extends Controller {
                 'invoice_date' => $_POST['invoice_date'],
                 'due_date' => !empty($_POST['due_date']) ? $_POST['due_date'] : null,
                 'total_amount' => (float)$_POST['total_amount'],
-                'status' => $_POST['status'] ?? $currentInvoice['status'], // Keep current if not set
-                'payment_date' => !empty($_POST['payment_date']) ? $_POST['payment_date'] : null,
+                'status' => $_POST['status'] ?? $currentInvoice['status'],
+                'payment_date' => !empty($_POST['payment_date']) ? $_POST['payment_date'] : null, // This might be better handled by addPayment logic
                 'notes' => trim($_POST['notes'] ?? ''),
             ];
-
-            // If status is changing to 'paid' and payment_date is not set, set it.
-            if ($data['status'] === 'paid' && empty($data['payment_date'])) {
-                $data['payment_date'] = date('Y-m-d');
-            } elseif ($data['status'] !== 'paid' && $data['status'] !== 'partially_paid') {
-                $data['payment_date'] = null; // Clear payment date if not paid/partially_paid
-            }
-
+             // Logic for payment_date related to status is now primarily in SupplierInvoiceModel->updateInvoicePaymentStatus
+            // However, if status is directly set here and it's 'paid' without a payment date, model might set it.
+            // If status is changed away from 'paid', model should handle clearing payment_date.
 
             $errors = [];
-            // Add validation similar to store()
-             if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
+            if (empty($data['supplier_id'])) $errors['supplier_id'] = "Le fournisseur est requis.";
             if (empty($data['invoice_number'])) $errors['invoice_number'] = "Le numéro de facture est requis.";
             // ... more validation
 
             if (!empty($errors)) {
                 $suppliers = $this->supplierModel->getAll();
-                // Merge $data into $currentInvoice for form repopulation to keep fields not in $data
                 $invoiceForForm = array_merge($currentInvoice, $data);
                 $this->renderView('procurement/supplier_invoices/edit', [
                     'errors' => $errors,
@@ -202,7 +188,7 @@ class SupplierinvoiceController extends Controller {
                 return;
             }
 
-            if ($this->supplierInvoiceModel->updateInvoice($id, $data)) {
+            if ($this->supplierInvoiceModel->updateInvoice($id, $data)) { // updateInvoice now calls updateInvoicePaymentStatus if total_amount changes
                 header("Location: /index.php?url=supplierinvoice/show/{$id}&status=updated_success");
                 exit;
             } else {
@@ -223,25 +209,104 @@ class SupplierinvoiceController extends Controller {
         }
     }
 
-    public function markAsPaid($id) {
-        $paymentDate = $_POST['payment_date'] ?? date('Y-m-d'); // Allow setting specific payment date or default to today
-        if ($this->supplierInvoiceModel->updatePaymentStatus($id, 'paid', $paymentDate)) {
-            header("Location: /index.php?url=supplierinvoice/show/{$id}&status=paid_success");
-        } else {
-            header("Location: /index.php?url=supplierinvoice/show/{$id}&status=paid_error");
+    public function addPayment($invoiceId) {
+        $invoice = $this->supplierInvoiceModel->getByIdWithDetails((int)$invoiceId);
+        if (!$invoice) {
+            $this->renderView('errors/404', ['message' => "Facture fournisseur avec l'ID {$invoiceId} non trouvée."]);
+            return;
         }
-        exit;
+
+        $remainingBalance = (float)$invoice['total_amount'] - (float)($invoice['paid_amount'] ?? 0.00);
+
+        $this->renderView('procurement/supplier_invoices/add_payment', [
+            'invoice' => $invoice,
+            'remainingBalance' => $remainingBalance,
+            'data' => [],
+            'errors' => [],
+            'title' => "Ajouter un paiement pour Facture Fournisseur #" . htmlspecialchars($invoice['invoice_number'])
+        ]);
     }
 
+    public function storePayment() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header("Location: /index.php?url=supplierinvoice/index");
+            exit;
+        }
+
+        $invoiceId = $_POST['supplier_invoice_id'] ?? null;
+        $paymentData = [
+            'supplier_invoice_id' => $invoiceId ? (int)$invoiceId : null,
+            'payment_date' => $_POST['payment_date'] ?? null,
+            'amount_paid' => isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) ? (float)$_POST['amount_paid'] : null,
+            'payment_method' => trim($_POST['payment_method'] ?? ''),
+            'notes' => trim($_POST['notes'] ?? '')
+        ];
+
+        $errors = [];
+        if (empty($paymentData['supplier_invoice_id'])) $errors['supplier_invoice_id'] = "ID de la facture manquant.";
+        if (empty($paymentData['payment_date'])) $errors['payment_date'] = "Date de paiement requise.";
+        if ($paymentData['amount_paid'] === null || $paymentData['amount_paid'] <= 0) {
+            $errors['amount_paid'] = "Le montant payé doit être un nombre positif.";
+        }
+
+        $invoice = null;
+        if ($invoiceId) {
+            $invoice = $this->supplierInvoiceModel->getByIdWithDetails((int)$invoiceId);
+            if (!$invoice) {
+                if (!isset($errors['supplier_invoice_id'])) $errors['supplier_invoice_id'] = "Facture fournisseur avec l'ID {$invoiceId} non trouvée.";
+            } else {
+                $remainingBalance = (float)$invoice['total_amount'] - (float)($invoice['paid_amount'] ?? 0.00);
+                if ($paymentData['amount_paid'] !== null && $paymentData['amount_paid'] > ($remainingBalance + 0.001)) {
+                    $errors['amount_paid'] = "Le montant payé (".number_format($paymentData['amount_paid'],2).") ne peut pas excéder le solde restant (".number_format($remainingBalance,2).").";
+                }
+            }
+        } else {
+             if (!isset($errors['supplier_invoice_id'])) $errors['supplier_invoice_id'] = "ID de la facture non fourni.";
+        }
+
+        if (!empty($errors)) {
+            $remainingBalanceForView = 0;
+            if ($invoice) {
+                $remainingBalanceForView = (float)$invoice['total_amount'] - (float)($invoice['paid_amount'] ?? 0.00);
+            }
+            $this->renderView('procurement/supplier_invoices/add_payment', [
+                'invoice' => $invoice,
+                'remainingBalance' => $remainingBalanceForView,
+                'data' => $_POST,
+                'errors' => $errors,
+                'title' => $invoice ? "Ajouter un paiement pour Facture Fournisseur #" . htmlspecialchars($invoice['invoice_number']) : "Erreur d'ajout de paiement"
+            ]);
+            return;
+        }
+
+        $paymentIdOrError = $this->supplierInvoiceModel->addPayment($paymentData);
+
+        if (is_numeric($paymentIdOrError)) {
+            header("Location: /index.php?url=supplierinvoice/show/" . $paymentData['supplier_invoice_id'] . "&status=payment_success");
+            exit;
+        } else {
+            $errors['general'] = is_string($paymentIdOrError) ? $paymentIdOrError : "Échec de l'ajout du paiement.";
+            $invoice = $this->supplierInvoiceModel->getByIdWithDetails($paymentData['supplier_invoice_id']); // Re-fetch for updated paid_amount
+            $remainingBalance = $invoice ? (float)$invoice['total_amount'] - (float)($invoice['paid_amount'] ?? 0.00) : 0;
+
+            $this->renderView('procurement/supplier_invoices/add_payment', [
+                'invoice' => $invoice,
+                'remainingBalance' => $remainingBalance,
+                'data' => $_POST,
+                'errors' => $errors,
+                'title' => $invoice ? "Ajouter un paiement pour Facture Fournisseur #" . htmlspecialchars($invoice['invoice_number']) : "Erreur d'ajout de paiement"
+            ]);
+        }
+    }
 
     public function destroy($id) {
-        // Add checks: e.g., cannot delete 'paid' invoices in a strict system.
         $invoice = $this->supplierInvoiceModel->getByIdWithDetails($id);
         if (!$invoice) {
              header("Location: /index.php?url=supplierinvoice/index&status=delete_not_found"); exit;
         }
-        // if ($invoice['status'] === 'paid') {
-        //    header("Location: /index.php?url=supplierinvoice/show/{$id}&status=delete_failed_paid"); exit;
+        // Optional: Add checks, e.g., cannot delete 'paid' invoices in a strict system.
+        // if ($invoice['status'] === 'paid' || $invoice['status'] === 'partially_paid') {
+        //    header("Location: /index.php?url=supplierinvoice/show/{$id}&status=delete_failed_has_payments"); exit;
         // }
 
         if ($this->supplierInvoiceModel->deleteInvoice($id)) {

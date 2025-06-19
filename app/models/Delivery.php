@@ -146,17 +146,18 @@ foreach ($deliveryFields as $field) {
                         $notes .= " (Ref PO Item ID: {$item['purchase_order_item_id']})";
                     }
 
-                    if (!$productModel->updateStock(
-                        $item['product_id'], // productId
+                    // Changed updateStock to updateStockQuantity
+                    if (!$productModel->updateStockQuantity(
+                        (int)$item['product_id'], // productId
+                        (int)$item['unit_id'],             // unitId (transactionUnitId)
+                        (float)$item['quantity_received'], // quantityChange (positive for increase)
                         'in_delivery',       // movementType
-                        (float)$item['quantity_received'], // quantityInTransactionUnit (positive for increase)
-                        (int)$item['unit_id'],             // transactionUnitId
                         $deliveryItemId,     // relatedDocumentId
                         'delivery_items',    // relatedDocumentType
                         $notes               // notes
                     )) {
                         // $this->pdo->rollBack();
-                        error_log("Failed to update stock or create movement for product ID {$item['product_id']}.");
+                        error_log("Failed to update stock or create movement for product ID {$item['product_id']} using updateStockQuantity.");
                         return false;
                     }
                 }
@@ -372,18 +373,19 @@ foreach ($deliveryFields as $field) {
 
                     $reversalNotes = "Reversal for deleted DEL-{$deliveryId}, Item ID: {$item['id']}. Original qty {$item['quantity_received']} in unit ID {$item['unit_id']}.";
 
-                    // Pass negative quantity in transaction unit to updateStock
-                    if (!$productModel->updateStock(
-                        $item['product_id'],      // productId
+                    // Changed updateStock to updateStockQuantity
+                    // Pass negative quantityChange
+                    if (!$productModel->updateStockQuantity(
+                        (int)$item['product_id'],      // productId
+                        (int)$item['unit_id'],               // unitId (unit of the original delivery item)
+                        -(float)$item['quantity_received'], // NEGATIVE quantityChange
                         'delivery_reversal',      // movementType
-                        -(float)$item['quantity_received'], // NEGATIVE quantityInTransactionUnit
-                        (int)$item['unit_id'],               // transactionUnitId (unit of the original delivery item)
                         $item['id'],              // relatedDocumentId (original delivery_item_id)
                         'delivery_items',         // relatedDocumentType
                         $reversalNotes            // notes
                     )) {
                         // $this->pdo->rollBack();
-                        error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during delivery deletion.");
+                        error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during delivery deletion using updateStockQuantity.");
                         return false;
                     }
                     // Option 2: Delete the original stock movement (less ideal for auditing)

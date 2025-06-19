@@ -1,6 +1,8 @@
 <?php
 
 require_once ROOT_PATH . '/core/Model.php';
+require_once ROOT_PATH . '/app/models/StockMovement.php';
+require_once ROOT_PATH . '/app/models/Unit.php';
 
 class Product extends Model {
 
@@ -22,7 +24,7 @@ class Product extends Model {
             return false;
         }
 
-        $fields = ['name', 'description', 'category_id', 'base_unit_id', 'quantity_in_stock', 'purchase_price', 'selling_price'];
+        $fields = ['name', 'description', 'category_id', 'base_unit_id', 'purchase_price', 'selling_price'];
         $params = [];
         $columns = [];
         $placeholders = [];
@@ -38,16 +40,6 @@ class Product extends Model {
                 }
             }
         }
-
-        // Ensure quantity_in_stock defaults to 0 if not provided or empty
-        if (!in_array('quantity_in_stock', $columns) || (isset($data['quantity_in_stock']) && $data['quantity_in_stock'] === '')) {
-            if (!in_array('quantity_in_stock', $columns)) {
-                $columns[] = 'quantity_in_stock';
-                $placeholders[] = ':quantity_in_stock';
-            }
-            $params[':quantity_in_stock'] = 0;
-        }
-
 
         if (empty($columns)) return false;
 
@@ -291,7 +283,7 @@ class Product extends Model {
     public function getAll() {
         $sql = "SELECT
                     p.id, p.name, p.description, p.category_id, p.base_unit_id,
-                    p.quantity_in_stock, p.purchase_price, p.selling_price,
+                    p.purchase_price, p.selling_price,
                     p.created_at, p.updated_at,
                     pc.name as category_name,
                     u.name as base_unit_name,
@@ -316,7 +308,7 @@ class Product extends Model {
     public function getById($id) {
         $sql = "SELECT
                     p.id, p.name, p.description, p.category_id, p.base_unit_id,
-                    p.quantity_in_stock, p.purchase_price, p.selling_price,
+                    p.purchase_price, p.selling_price,
                     p.created_at, p.updated_at,
                     pc.name as category_name,
                     u.name as base_unit_name,
@@ -363,8 +355,7 @@ class Product extends Model {
             unset($data['base_unit_id']); // Remove from data to prevent accidental update by subsequent logic
         }
 
-        // quantity_in_stock should not be updated directly through this method.
-        // It's managed by updateStock() which creates movements.
+        // quantity_in_stock column no longer exists in products table.
         $fields = ['name', 'description', 'category_id', /* 'base_unit_id', */ 'purchase_price', 'selling_price'];
         $params = [':id' => $id];
         $setParts = [];
@@ -411,99 +402,258 @@ class Product extends Model {
     }
 
     /**
-     * Updates the stock quantity for a product and records the movement.
-     * The quantity change in products.quantity_in_stock is ALREADY in base unit.
-     * The stock movement record will store the original transaction quantity and unit.
+     * Retrieves the current stock quantity for a given product in a specific unit of measure.
+     * @param int $productId The ID of the product.
+     * @param int $unitId The ID of the unit of measure.
+     * @return float The quantity if found, otherwise 0.0.
+     */
+    public function getStock(int $productId, int $unitId): float {
+        $sql = "SELECT quantity FROM product_stock_per_unit WHERE product_id = :product_id AND unit_id = :unit_id";
+        try {
+            $result = $this->db->select($sql, [':product_id' => $productId, ':unit_id' => $unitId]);
+            if ($result && count($result) > 0) {
+                return (float)$result[0]['quantity'];
+            }
+            return 0.0;
+        } catch (PDOException $e) {
+            error_log("Error fetching stock for product ID {$productId}, unit ID {$unitId}: " . $e->getMessage());
+            return 0.0; // Should perhaps throw or return a more specific error indicator
+        }
+    }
+
+    /**
+     * Retrieves all stock records for a product, showing quantity per unit.
+     * @param int $productId The ID of the product.
+     * @return array An array of stock data.
+     */
+    public function getAllStockForProduct(int $productId): array {
+        $sql = "SELECT ps.unit_id, u.name as unit_name, u.symbol as unit_symbol, ps.quantity
+                FROM product_stock_per_unit ps
+                JOIN units u ON ps.unit_id = u.id
+                WHERE ps.product_id = :product_id
+                ORDER BY u.name";
+        try {
+            return $this->db->select($sql, [':product_id' => $productId]);
+        } catch (PDOException $e) {
+            error_log("Error fetching all stock for product ID {$productId}: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Updates the stock quantity for a product in a specific unit and records the movement.
      *
      * @param int $productId The ID of the product.
-     * @param string $movementType Type of stock movement (e.g., 'in_delivery', 'out_sale').
-     * @param float $quantityInTransactionUnit The quantity of the transaction in transaction_unit_id.
-     *                                         This value is positive for increases (e.g. delivery) and
-     *                                         negative for decreases (e.g. sale).
-     * @param int $transactionUnitId The unit ID of the quantityInTransactionUnit.
+     * @param int $unitId The ID of the unit for the quantity change.
+     * @param float $quantityChange The amount to add (positive) or subtract (negative) in the given unit.
+     * @param string $movementType Type of stock movement (e.g., 'in_delivery', 'out_sale', 'adjustment_in', 'adjustment_out').
      * @param int|null $relatedDocumentId Optional ID of the document causing the change.
      * @param string|null $relatedDocumentType Optional type of the related document.
      * @param string|null $notes Optional notes for the movement.
      * @return bool True on success, false on failure.
      */
-    public function updateStock(int $productId, string $movementType, float $quantityInTransactionUnit, int $transactionUnitId, ?int $relatedDocumentId = null, ?string $relatedDocumentType = null, ?string $notes = null): bool {
+    public function updateStockQuantity(int $productId, int $unitId, float $quantityChange, string $movementType, ?int $relatedDocumentId = null, ?string $relatedDocumentType = null, ?string $notes = null): bool {
+        // TODO: Implement transaction management if $this->db supports it and it's not handled by a service layer.
+        // For now, operations are grouped. If one fails, subsequent ones might not run, but no explicit rollback.
 
-        $product = $this->getById($productId); // This already fetches base_unit_id, base_unit_name etc.
-        if (!$product) {
-            error_log("Product not found (ID: {$productId}) for stock update.");
+        $currentQuantity = $this->getStock($productId, $unitId);
+
+        if ($currentQuantity === false && $quantityChange < 0) { // Assuming getStock might return false on error, though it's typed to float
+            error_log("Error fetching current stock or trying to reduce non-existent stock for product ID {$productId}, unit ID {$unitId}.");
             return false;
         }
-        $baseUnitId = $product['base_unit_id'];
-        $quantityChangeInBaseUnit = 0;
-
-        if ($transactionUnitId == $baseUnitId) {
-            $quantityChangeInBaseUnit = $quantityInTransactionUnit;
-        } else {
-            $productUnits = $this->getUnitsForProduct($productId); // Use the new method
-            $conversionFactor = null;
-            foreach ($productUnits as $pu) {
-                if ($pu['unit_id'] == $transactionUnitId) {
-                    $conversionFactor = (float)$pu['conversion_factor_to_base_unit'];
-                    break;
-                }
-            }
-            if ($conversionFactor === null || $conversionFactor == 0) {
-                error_log("Conversion factor not found or invalid for product ID {$productId}, unit ID {$transactionUnitId}. Cannot update stock.");
-                return false;
-            }
-            $quantityChangeInBaseUnit = $quantityInTransactionUnit * $conversionFactor;
+        // If getStock returns 0.0 for a non-existent record, this logic holds.
+        if ($currentQuantity == 0.0 && $quantityChange < 0 && !$this->db->select("SELECT 1 FROM product_stock_per_unit WHERE product_id = :pid AND unit_id = :uid", [':pid' => $productId, ':uid' => $unitId])) {
+             error_log("Cannot reduce stock for product ID {$productId}, unit ID {$unitId} as no stock record exists.");
+             return false;
         }
 
-        // $this->pdo->beginTransaction();
+
+        $newQuantity = $currentQuantity + $quantityChange;
+
+        if ($newQuantity < 0) {
+            error_log("Insufficient stock for product ID {$productId}, unit ID {$unitId}. Required: " . abs($quantityChange) . ", available: {$currentQuantity}.");
+            return false;
+        }
+
+        // Update or Insert into product_stock_per_unit
+        $stockRecordExists = $this->db->select("SELECT 1 FROM product_stock_per_unit WHERE product_id = :product_id AND unit_id = :unit_id", [':product_id' => $productId, ':unit_id' => $unitId]);
+
         try {
-            // 1. Update products.quantity_in_stock (cache field)
-            // $quantityChangeInBaseUnit is already signed (positive for in, negative for out)
-            $sqlStockUpdate = "UPDATE {$this->tableName}
-                               SET quantity_in_stock = quantity_in_stock + :quantity_change_in_base_unit,
-                                   updated_at = CURRENT_TIMESTAMP
-                               WHERE id = :product_id";
-            $updateParams = [
-                ':quantity_change_in_base_unit' => $quantityChangeInBaseUnit,
-                ':product_id' => $productId
-            ];
-            $this->db->update($sqlStockUpdate, $updateParams);
-
-            // 2. Create Stock Movement record
-            // StockMovementModel->createMovement expects a positive quantity for its 'quantity_in_transaction_unit'
-            // and the 'type' field determines the nature (in/out).
-            // The $movementType passed to updateStock already reflects this (e.g. 'out_sale').
-            $stockMovementModel = new StockMovement($this->db);
-            $movementData = [
-                'product_id' => $productId,
-                'type' => $movementType,
-                'quantity_in_transaction_unit' => abs($quantityInTransactionUnit), // Must be positive for the movement record itself
-                'transaction_unit_id' => $transactionUnitId,
-                'movement_date' => date('Y-m-d H:i:s'),
-                'related_document_id' => $relatedDocumentId,
-                'related_document_type' => $relatedDocumentType,
-                'notes' => $notes
-            ];
-
-            // The StockMovementModel->createMovement will handle storing original_quantity/unit
-            // and calculating the 'quantity' field in base units (which should match abs($quantityChangeInBaseUnit)).
-
-            if (!$stockMovementModel->createMovement($movementData)) {
-                // $this->pdo->rollBack();
-                error_log("Failed to create stock movement record for product ID {$productId}. Stock cache update rolled back.");
-                return false;
+            if ($stockRecordExists && count($stockRecordExists) > 0) {
+                $sql = "UPDATE product_stock_per_unit SET quantity = :new_quantity, updated_at = CURRENT_TIMESTAMP WHERE product_id = :product_id AND unit_id = :unit_id";
+                $this->db->update($sql, [':new_quantity' => $newQuantity, ':product_id' => $productId, ':unit_id' => $unitId]);
+            } else {
+                // Only insert if new quantity is non-negative.
+                // If quantityChange was negative and no record existed, we would have exited earlier.
+                // If quantityChange is positive and no record, this will insert.
+                // If quantityChange results in zero for a new record, it might be desired to create it.
+                 if ($newQuantity >= 0) {
+                    $sql = "INSERT INTO product_stock_per_unit (product_id, unit_id, quantity, created_at, updated_at)
+                            VALUES (:product_id, :unit_id, :new_quantity, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                    $this->db->insert($sql, [':product_id' => $productId, ':unit_id' => $unitId, ':new_quantity' => $newQuantity]);
+                 } else {
+                    // This case should ideally be caught by $newQuantity < 0 check above,
+                    // but as a safeguard if a new record would result in negative stock.
+                    error_log("Attempted to create a new stock record with negative quantity for product ID {$productId}, unit ID {$unitId}. This should not happen.");
+                    return false;
+                 }
             }
-
-            // $this->pdo->commit();
-            return true;
-
         } catch (PDOException $e) {
-            // $this->pdo->rollBack();
-            error_log("Error updating stock for product ID {$productId} (transaction rolled back): " . $e->getMessage());
-            if ($e->getCode() == '23514') { // CHECK constraint violation (e.g. stock < 0 if not allowed by DB)
-                 error_log("Check constraint violated during stock update for product ID {$productId}.");
-            }
+            error_log("Error updating/inserting product_stock_per_unit for product ID {$productId}, unit ID {$unitId}: " . $e->getMessage());
+            // TODO: Rollback if transactions were started
             return false;
         }
+
+        // Record the stock movement
+        $stockMovementModel = new StockMovement($this->db);
+        $movementData = [
+            'product_id' => $productId,
+            'type' => $movementType, // e.g., 'in_delivery', 'out_sale', 'adjustment_in', 'adjustment_out'
+            'quantity_in_transaction_unit' => abs($quantityChange), // Movement model expects positive quantity
+            'transaction_unit_id' => $unitId,
+            'movement_date' => date('Y-m-d H:i:s'),
+            'related_document_id' => $relatedDocumentId,
+            'related_document_type' => $relatedDocumentType,
+            'notes' => $notes
+        ];
+
+        if (!$stockMovementModel->createMovement($movementData)) {
+            error_log("Failed to create stock movement record for product ID {$productId}, unit ID {$unitId}. The product_stock_per_unit table might have been updated, but movement log failed. Manual reconciliation may be needed if no transaction rollback.");
+            // TODO: Rollback product_stock_per_unit change if transactions were started
+            return false;
+        }
+
+        // TODO: Commit transaction if started
+        return true;
+    }
+
+    /**
+     * Converts a quantity of a product from a source unit to a target unit, updating stock for both.
+     *
+     * @param int $productId The ID of the product.
+     * @param int $sourceUnitId The ID of the source unit (from which quantity is taken).
+     * @param float $sourceQuantity The quantity in the source unit to convert.
+     * @param int $targetUnitId The ID of the target unit (to which quantity is added).
+     * @return bool|string True on success, or an error message string on failure.
+     */
+    public function fractionProduct(int $productId, int $sourceUnitId, float $sourceQuantity, int $targetUnitId) {
+        // 1. Validate Inputs
+        if ($sourceUnitId === $targetUnitId) {
+            return "L'unité source et l'unité cible ne peuvent pas être identiques pour le fractionnement.";
+        }
+        if ($sourceQuantity <= 0) {
+            return "La quantité source pour le fractionnement doit être positive.";
+        }
+
+        $product = $this->getById($productId);
+        if (!$product) {
+            return "Produit non trouvé pour le fractionnement (ID: {$productId}).";
+        }
+
+        $configuredUnits = $this->getUnitsForProduct($productId);
+        $sourceUnitInfo = null;
+        $targetUnitInfo = null;
+
+        foreach ($configuredUnits as $unit) {
+            if ($unit['unit_id'] == $sourceUnitId) {
+                $sourceUnitInfo = $unit;
+            }
+            if ($unit['unit_id'] == $targetUnitId) {
+                $targetUnitInfo = $unit;
+            }
+        }
+
+        if (!$sourceUnitInfo) {
+            return "Unité source (ID: {$sourceUnitId}) non valide ou non configurée pour le produit (ID: {$productId}).";
+        }
+        if (!$targetUnitInfo) {
+            return "Unité cible (ID: {$targetUnitId}) non valide ou non configurée pour le produit (ID: {$productId}).";
+        }
+
+        // 2. Check Stock
+        $currentStockInSourceUnit = (float)$this->getStock($productId, $sourceUnitId);
+        if ($currentStockInSourceUnit < $sourceQuantity) {
+            return "Stock insuffisant dans l'unité source ({$sourceUnitInfo['name']}) pour le fractionnement. Demandé: {$sourceQuantity}, Disponible: {$currentStockInSourceUnit}.";
+        }
+
+        // 3. Calculate Target Quantity
+        $factorSourceToBase = (float)$sourceUnitInfo['conversion_factor_to_base_unit'];
+        $factorTargetToBase = (float)$targetUnitInfo['conversion_factor_to_base_unit'];
+
+        if ($factorSourceToBase <= 0) {
+            return "Facteur de conversion invalide pour l'unité source: {$sourceUnitInfo['name']}.";
+        }
+        if ($factorTargetToBase <= 0) {
+            return "Facteur de conversion invalide pour l'unité cible: {$targetUnitInfo['name']}.";
+        }
+
+        $quantityInBaseUnits = $sourceQuantity * $factorSourceToBase;
+        $calculatedTargetQuantity = $quantityInBaseUnits / $factorTargetToBase;
+
+        if ($calculatedTargetQuantity <= 0) { // Should not happen if factors are positive
+            return "La quantité cible calculée est nulle ou négative, vérifiez les facteurs de conversion.";
+        }
+
+        // TODO: Consider transaction management here if not handled globally by a service layer.
+        // $this->db->beginTransaction(); or similar
+
+        // 4. Update Stock (Decrease Source)
+        $notesSource = "Fractionnement: sortie de {$sourceQuantity} {$sourceUnitInfo['symbol']} (vers {$targetUnitInfo['symbol']})";
+        $decreaseSuccess = $this->updateStockQuantity(
+            $productId,
+            $sourceUnitId,
+            -$sourceQuantity, // Negative quantityChange
+            'split_out',
+            null,
+            'fractioning',
+            $notesSource
+        );
+
+        if (!$decreaseSuccess) {
+            // $this->db->rollBack();
+            error_log("Échec de la diminution du stock source (ID Unité: {$sourceUnitId}) lors du fractionnement pour le produit ID {$productId}.");
+            return "Échec de la mise à jour du stock source lors du fractionnement.";
+        }
+
+        // 5. Update Stock (Increase Target)
+        $notesTarget = "Fractionnement: entrée de {$calculatedTargetQuantity} {$targetUnitInfo['symbol']} (depuis {$sourceUnitInfo['symbol']})";
+        $increaseSuccess = $this->updateStockQuantity(
+            $productId,
+            $targetUnitId,
+            $calculatedTargetQuantity, // Positive quantityChange
+            'split_in',
+            null,
+            'fractioning',
+            $notesTarget
+        );
+
+        if (!$increaseSuccess) {
+            error_log("Échec de l'augmentation du stock cible (ID Unité: {$targetUnitId}) lors du fractionnement pour le produit ID {$productId}. Tentative d'annulation de la diminution source.");
+
+            // Attempt to revert the source stock deduction
+            $reversalNotesSource = "ANNULATION Fractionnement: retour de {$sourceQuantity} {$sourceUnitInfo['symbol']} suite à échec cible";
+            $reversalSuccess = $this->updateStockQuantity(
+                $productId,
+                $sourceUnitId,
+                $sourceQuantity, // Positive quantityChange to add back
+                'split_out_reversal', // Distinct movement type for reversal
+                null,
+                'fractioning_reversal',
+                $reversalNotesSource
+            );
+
+            if (!$reversalSuccess) {
+                // $this->db->rollBack(); // Rollback the entire transaction if it was started
+                error_log("ERREUR CRITIQUE: Échec de l'annulation de la diminution du stock source (ID Unité: {$sourceUnitId}) après l'échec de l'augmentation du stock cible pour le produit ID {$productId}. Intervention manuelle requise.");
+                return "Échec de la mise à jour du stock cible ET échec de l'annulation de la modification du stock source. Intervention manuelle requise.";
+            }
+            // $this->db->rollBack(); // Rollback the entire transaction
+            return "Échec de la mise à jour du stock cible. La modification du stock source a été annulée.";
+        }
+
+        // $this->db->commit();
+        return true;
     }
 }
 ?>

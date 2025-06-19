@@ -50,7 +50,6 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     category_id INTEGER REFERENCES product_categories(id) ON DELETE SET NULL,
     base_unit_id INTEGER NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
-    quantity_in_stock INTEGER DEFAULT 0,
     purchase_price DECIMAL(10, 2),
     selling_price DECIMAL(10, 2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -79,8 +78,7 @@ CREATE INDEX IF NOT EXISTS idx_products_base_unit_id ON products(base_unit_id);
 -- ('Laptop Battery', 'Replacement battery for Laptop Pro', 1, 1, 20, 50.00, 80.00);
 
 COMMENT ON COLUMN products.category_id IS 'ID of the product category from product_categories table.';
-COMMENT ON COLUMN products.base_unit_id IS 'ID of the base unit of measure for this product from units table (e.g., piece, kg). This is the unit for quantity_in_stock.';
-COMMENT ON COLUMN products.quantity_in_stock IS 'Current stock level of the product, in its base unit.';
+COMMENT ON COLUMN products.base_unit_id IS 'ID of the base unit of measure for this product from units table (e.g., piece, kg).';
 COMMENT ON COLUMN products.purchase_price IS 'Cost price of the product.';
 COMMENT ON COLUMN products.selling_price IS 'Retail price of the product.';
 
@@ -344,6 +342,34 @@ CREATE INDEX IF NOT EXISTS idx_si_status ON supplier_invoices(status);
 
 COMMENT ON TABLE supplier_invoices IS 'Stores supplier invoice details.';
 COMMENT ON COLUMN supplier_invoices.invoice_number IS 'Supplier-provided invoice number, unique per supplier.';
+
+-- Table supplier_invoice_payments
+CREATE TABLE IF NOT EXISTS supplier_invoice_payments (
+    id SERIAL PRIMARY KEY,
+    supplier_invoice_id INTEGER NOT NULL REFERENCES supplier_invoices(id) ON DELETE CASCADE,
+    payment_date DATE NOT NULL,
+    amount_paid DECIMAL(12, 2) NOT NULL CHECK (amount_paid > 0),
+    payment_method VARCHAR(100), -- e.g., 'Bank Transfer', 'Check', 'Cash'
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER update_supplier_invoice_payments_updated_at
+BEFORE UPDATE ON supplier_invoice_payments
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE supplier_invoice_payments IS 'Stores individual payment records made against supplier invoices.';
+COMMENT ON COLUMN supplier_invoice_payments.supplier_invoice_id IS 'Reference to the supplier invoice being paid.';
+COMMENT ON COLUMN supplier_invoice_payments.amount_paid IS 'The amount paid in this specific transaction.';
+COMMENT ON COLUMN supplier_invoice_payments.payment_method IS 'Method used for this payment.';
+
+-- Add paid_amount to supplier_invoices
+ALTER TABLE supplier_invoices
+ADD COLUMN paid_amount DECIMAL(12, 2) DEFAULT 0.00;
+
+COMMENT ON COLUMN supplier_invoices.paid_amount IS 'Total amount paid so far for this invoice. Updated by summing supplier_invoice_payments.';
 
 -- Module de Vente
 

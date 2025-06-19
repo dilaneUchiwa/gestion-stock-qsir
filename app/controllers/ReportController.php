@@ -26,27 +26,31 @@ class ReportController extends Controller {
      */
     public function current_stock() {
         $productModel = $this->loadModel('Product');
-        $allProducts = $productModel->getAll(); // Fetches products with base unit and category info
+        $allProductsInfo = $productModel->getAll(); // Basic product info (ID, name, category, base unit)
 
-        $enrichedProducts = [];
-        foreach ($allProducts as $product) {
-            $product['configured_units'] = $productModel->getUnitsForProduct($product['id']);
-            $enrichedProducts[] = $product;
+        $productsReportData = [];
+        if ($allProductsInfo) {
+            foreach ($allProductsInfo as $productInfo) {
+                $stockPerUnit = $productModel->getAllStockForProduct($productInfo['id']);
+
+                $productsReportData[] = [
+                    'id' => $productInfo['id'],
+                    'name' => $productInfo['name'],
+                    'category_name' => $productInfo['category_name'] ?? 'N/A',
+                    'base_unit_id' => $productInfo['base_unit_id'],
+                    'base_unit_name' => $productInfo['base_unit_name'] ?? 'N/A',
+                    'base_unit_symbol' => $productInfo['base_unit_symbol'] ?? 'N/A',
+                    'stock_levels' => $stockPerUnit
+                ];
+            }
         }
 
-        // Potential filters (example: low stock) - applied on enriched data if needed, or before enrichment
-        $filter_low_stock_threshold = isset($_GET['low_stock_threshold']) ? (int)$_GET['low_stock_threshold'] : null;
-        if ($filter_low_stock_threshold !== null) {
-            // This filter still works on quantity_in_stock which is in base unit.
-            $enrichedProducts = array_filter($enrichedProducts, function($product) use ($filter_low_stock_threshold) {
-                return $product['quantity_in_stock'] <= $filter_low_stock_threshold;
-            });
-        }
+        // Low stock filter is removed as stock is now per unit and not a single 'quantity_in_stock' field.
+        // This kind of filtering would need to be re-thought based on per-unit stock levels or base unit equivalent.
 
-        $this->renderView('reports/stock_status_report', [ // Changed view name
-            'products' => $enrichedProducts,
-            'low_stock_threshold' => $filter_low_stock_threshold,
-            'title' => 'Rapport d\'État du Stock Actuel' // Changed title
+        $this->renderView('reports/stock_status_report', [
+            'products' => $productsReportData,
+            'title' => 'Rapport d\'État du Stock Actuel'
         ]);
     }
 

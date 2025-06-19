@@ -107,7 +107,7 @@
                         </select>
                     </td>
                     <td><input type="number" name="items[<?php echo $idx; ?>][quantity_sold]" class="quantity-input" value="<?php echo htmlspecialchars($item['quantity_sold'] ?? '1'); ?>" min="0.001" step="any" required data-index="<?php echo $idx; ?>"></td>
-                    <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>"></td>
+                    <td><input type="number" name="items[<?php echo $idx; ?>][unit_price]" class="price-input" value="<?php echo htmlspecialchars($item['unit_price'] ?? '0.00'); ?>" min="0" step="0.01" required data-index="<?php echo $idx; ?>" readonly></td>
                     <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
                     <td><button type="button" class="remove-item-btn button-danger btn-sm">Retirer</button></td>
                 </tr>
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </select>
             </td>
             <td><input type="number" name="items[${itemIndex}][quantity_sold]" class="quantity-input" value="1" min="0.001" step="any" required data-index="${itemIndex}"></td>
-            <td><input type="number" name="items[${itemIndex}][unit_price]" class="price-input" value="0.00" min="0" step="0.01" required data-index="${itemIndex}"></td>
+            <td><input type="number" name="items[${itemIndex}][unit_price]" class="price-input" value="0.00" min="0" step="0.01" required data-index="${itemIndex}" readonly></td>
             <td><input type="text" class="subtotal-display" value="0.00" readonly tabindex="-1"></td>
             <td><button type="button" class="remove-item-btn button-danger btn-sm">Retirer</button></td>
         `;

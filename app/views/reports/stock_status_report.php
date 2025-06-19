@@ -5,10 +5,6 @@ $pageTitle = $title ?? "Rapport d'État du Stock Actuel";
 
 <h2><?php echo htmlspecialchars($pageTitle); ?></h2>
 
-<?php if (isset($low_stock_threshold) && $low_stock_threshold !== null): ?>
-    <p class="alert alert-info">Affichage des produits avec un stock inférieur ou égal à <?php echo htmlspecialchars($low_stock_threshold); ?> (en unité de base).</p>
-<?php endif; ?>
-
 <div class="table-responsive-container" style="margin-top: 20px;">
     <?php if (empty($products)): ?>
         <p>Aucun produit trouvé correspondant aux critères actuels.</p>
@@ -35,30 +31,55 @@ $pageTitle = $title ?? "Rapport d'État du Stock Actuel";
                 </td>
                 <td><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
                 <td style="text-align: right; font-weight: bold;">
-                    <?php echo htmlspecialchars(number_format((float)($product['quantity_in_stock'] ?? 0), 2, ',', ' ')); ?>
+                    <?php
+                    $baseUnitStock = '0.00'; // Default
+                    if (isset($product['stock_levels']) && is_array($product['stock_levels'])) {
+                        foreach ($product['stock_levels'] as $stock_level) {
+                            if ($stock_level['unit_id'] == $product['base_unit_id']) {
+                                $baseUnitStock = number_format((float)($stock_level['quantity'] ?? 0), 2, ',', ' ');
+                                break;
+                            }
+                        }
+                    }
+                    echo htmlspecialchars($baseUnitStock);
+                    ?>
                 </td>
                 <td><?php echo htmlspecialchars($product['base_unit_symbol'] ?? $product['base_unit_name'] ?? 'N/A'); ?></td>
                 <td>
-                    <?php if (!empty($product['configured_units']) && count($product['configured_units']) > 1): ?>
+                    <?php if (!empty($product['stock_levels']) && count($product['stock_levels']) > 0): ?>
                         <ul>
-                            <?php foreach ($product['configured_units'] as $configured_unit): ?>
-                                <?php if ($configured_unit['unit_id'] != $product['base_unit_id']): // Don't re-display base unit stock ?>
-                                    <?php
-                                    $stockInBase = (float)($product['quantity_in_stock'] ?? 0);
-                                    $factor = (float)$configured_unit['conversion_factor_to_base_unit'];
-                                    $stockInConfiguredUnit = ($factor != 0) ? ($stockInBase / $factor) : 0;
-                                    ?>
+                            <?php foreach ($product['stock_levels'] as $stock_level): ?>
+                                <?php if ($stock_level['unit_id'] != $product['base_unit_id']): ?>
                                     <li>
-                                        <?php echo htmlspecialchars(number_format($stockInConfiguredUnit, 2, ',', ' ')); ?>
-                                        <?php echo htmlspecialchars($configured_unit['symbol'] ?? $configured_unit['name']); ?>
+                                        <?php echo htmlspecialchars(number_format((float)($stock_level['quantity'] ?? 0), 2, ',', ' ')); ?>
+                                        <?php echo htmlspecialchars($stock_level['unit_symbol'] ?? $stock_level['unit_name']); ?>
                                     </li>
                                 <?php endif; ?>
                             <?php endforeach; ?>
                         </ul>
-                    <?php elseif (count($product['configured_units']) <= 1 && !empty($product['base_unit_name'])): ?>
-                        <small><em>Uniquement l'unité de base est configurée.</em></small>
+                        <?php
+                        // Check if only base unit has stock or is configured among stock_levels
+                        $onlyBaseUnitInStockLevels = true;
+                        if (is_array($product['stock_levels'])) {
+                            foreach ($product['stock_levels'] as $sl) {
+                                if ($sl['unit_id'] != $product['base_unit_id'] && (float)($sl['quantity'] ?? 0) > 0) { // Check if any stock > 0 for alt units
+                                    $onlyBaseUnitInStockLevels = false;
+                                    break;
+                                }
+                                 // If an alt unit exists in stock_levels (even with 0 qty) it means it's configured for stock.
+                                 if ($sl['unit_id'] != $product['base_unit_id']) {
+                                    $onlyBaseUnitInStockLevels = false; // Found an alternative unit configured for stock
+                                    break;
+                                 }
+                            }
+                        }
+                        if ($onlyBaseUnitInStockLevels && count($product['stock_levels']) <=1 && !empty($product['base_unit_name']) ): ?>
+                         <small><em>Uniquement l'unité de base a du stock ou est configurée pour le stock.</em></small>
+                        <?php elseif (empty($product['stock_levels'])): ?>
+                             <small><em>Aucun stock enregistré pour ce produit.</em></small>
+                        <?php endif; ?>
                     <?php else: ?>
-                        <small><em>Aucune unité alternative configurée ou facteurs invalides.</em></small>
+                        <small><em>Aucun stock enregistré pour ce produit.</em></small>
                     <?php endif; ?>
                 </td>
             </tr>

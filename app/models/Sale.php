@@ -64,60 +64,94 @@ class Sale extends Model {
         // // $this->pdo->beginTransaction();
         try {
             $productModel = new Product($this->db);
+            $unitModel = new Unit($this->db); // Instantiate Unit model for unit details
 
-            // Check stock availability for all items first
-            foreach ($itemsData as $item) {
+            // Process items for price calculation and stock check
+            $processedItemsData = [];
+            $grossTotal = 0;
+
+            foreach ($itemsData as $key => $item) {
                 if (empty($item['product_id']) || empty($item['unit_id']) || empty($item['quantity_sold']) ||
-                    $item['quantity_sold'] <= 0 || !isset($item['unit_price']) || $item['unit_price'] < 0) {
-                    // // $this->pdo->rollBack();
-                    error_log("Invalid item data: product_id, unit_id, positive quantity_sold, and non-negative unit_price are required.");
-                    return false;
+                    $item['quantity_sold'] <= 0 /* || !isset($item['unit_price']) || $item['unit_price'] < 0 */ ) { // Unit price will be calculated
+                    error_log("Invalid item data: product_id, unit_id, and positive quantity_sold are required.");
+                    return "Données d'article invalides: ID produit, ID unité et quantité vendue positive sont requis.";
                 }
+
                 $product = $productModel->getById($item['product_id']);
                 if (!$product) {
-                    // // $this->pdo->rollBack();
-                    error_log("Product ID {$item['product_id']} not found for stock check.");
+                    error_log("Product ID {$item['product_id']} not found.");
                     return "Produit ID {$item['product_id']} non trouvé.";
                 }
 
-                $quantitySoldInBaseUnit = (float)$item['quantity_sold'];
-                if ($item['unit_id'] != $product['base_unit_id']) {
-                    $productUnits = $productModel->getUnitsForProduct($item['product_id']);
+                // Price Calculation
+                $calculatedUnitPrice = (float)$product['selling_price']; // Price in base unit
+
+                if ((int)$item['unit_id'] != (int)$product['base_unit_id']) {
                     $conversionFactor = null;
+                    $productUnits = $productModel->getUnitsForProduct($item['product_id']);
                     foreach ($productUnits as $pu) {
                         if ($pu['unit_id'] == $item['unit_id']) {
                             $conversionFactor = (float)$pu['conversion_factor_to_base_unit'];
                             break;
                         }
                     }
-                    if ($conversionFactor === null || $conversionFactor == 0) {
-                        // // $this->pdo->rollBack();
-                        error_log("Conversion factor not found or invalid for product ID {$item['product_id']}, unit ID {$item['unit_id']}.");
-                        return "Erreur de configuration d'unité pour le produit: " . $product['name'];
+
+                    if ($conversionFactor !== null && $conversionFactor > 0) {
+                        $calculatedUnitPrice = (float)$product['selling_price'] * $conversionFactor;
+                    } else {
+                        error_log("Conversion factor not found, zero, or invalid for product ID {$item['product_id']} (Name: {$product['name']}), unit ID {$item['unit_id']}.");
+                        return "Erreur de configuration du facteur de conversion pour le produit: " . $product['name'] . " et l'unité ID " . $item['unit_id'];
                     }
-                    $quantitySoldInBaseUnit = (float)$item['quantity_sold'] * $conversionFactor;
+                }
+                // Update item's unit price with the server-calculated one
+                $item['unit_price'] = $calculatedUnitPrice;
+
+
+                // Stock Availability Check (using new getStock method)
+                $currentStockInUnit = $productModel->getStock((int)$item['product_id'], (int)$item['unit_id']);
+                if ($currentStockInUnit < (float)$item['quantity_sold']) {
+                    $unitInfo = $unitModel->getById($item['unit_id']);
+                    $unitNameForMsg = $unitInfo ? $unitInfo['name'] : "ID Unité " . $item['unit_id'];
+                    error_log("Insufficient stock for product ID {$item['product_id']} (Name: {$product['name']}) in unit {$unitNameForMsg}. Requested: {$item['quantity_sold']}, Available: {$currentStockInUnit}.");
+                    return "Stock insuffisant pour: " . $product['name'] . ". Demandé: " . $item['quantity_sold'] . " en " . $unitNameForMsg . ". Disponible: " . $currentStockInUnit . ".";
                 }
 
-                if ($product['quantity_in_stock'] < $quantitySoldInBaseUnit) {
-                    // // $this->pdo->rollBack();
-                    $unitInfo = (new Unit($this->db))->getById($item['unit_id']);
-                    $unitNameForMsg = $unitInfo ? $unitInfo['name'] : "ID Unité ".$item['unit_id'];
-                    error_log("Insufficient stock for product ID {$item['product_id']} (Name: {$product['name']}). Requested: {$item['quantity_sold']} {$unitNameForMsg} (équiv. {$quantitySoldInBaseUnit} {$product['base_unit_name']}). Available: {$product['quantity_in_stock']} {$product['base_unit_name']}.");
-                    return "Stock insuffisant pour: " . $product['name'] . ". Demandé: " . $item['quantity_sold'] . " " . $unitNameForMsg . ". Disponible (en unité de base): " . $product['quantity_in_stock'] . " " . $product['base_unit_name'] . ".";
-                }
-            }
-
-            // Calculate gross total from items
-            $grossTotal = 0;
-            foreach($itemsData as $item){
+                $processedItemsData[] = $item; // Add the processed item (with calculated price) to a new array
                 $grossTotal += (float)$item['quantity_sold'] * (float)$item['unit_price'];
             }
+
+            // Use processedItemsData from now on for consistency
+            $itemsData = $processedItemsData;
 
             // Calculate net total_amount (after discount)
             // This total_amount is what gets stored in the sales table.
             $discountAmount = (float)($data['discount_amount'] ?? 0.00);
             $calculatedTotalAmount = $grossTotal - $discountAmount;
             $data['total_amount'] = $calculatedTotalAmount; // Override/set total_amount to be net amount
+
+            // Add Amount Tendered Validation for Immediate Sales
+            if ($data['payment_type'] === 'immediate' && ($data['payment_status'] ?? 'paid') === 'paid') {
+                // Ensure amount_tendered is a float for comparison
+                $amountTenderedFloat = isset($data['amount_tendered']) ? (float)$data['amount_tendered'] : 0.0;
+
+                // If amount_tendered was not set by controller, default it to total_amount for exact payment
+                if (!isset($data['amount_tendered']) || $data['amount_tendered'] === null) {
+                    $data['amount_tendered'] = $data['total_amount'];
+                    $amountTenderedFloat = (float)$data['total_amount'];
+                }
+
+                if ($amountTenderedFloat < (float)$data['total_amount']) {
+                    error_log("Insufficient amount tendered for immediate sale. Total: {$data['total_amount']}, Tendered: {$amountTenderedFloat}");
+                    return "Montant versé insuffisant. Requis: " . number_format((float)$data['total_amount'], 2) . ", Versé: " . number_format($amountTenderedFloat, 2) . ".";
+                }
+
+                // Calculate change_due. Model takes precedence.
+                $data['change_due'] = $amountTenderedFloat - (float)$data['total_amount'];
+                if ($data['change_due'] < 0) $data['change_due'] = 0; // Safeguard
+
+                // Ensure paid_amount is set to the net total for fully paid immediate sales
+                $data['paid_amount'] = $data['total_amount'];
+            }
 
             // Prepare Sale header fields
             // Added 'discount_amount', 'paid_amount', 'amount_tendered', 'change_due'
@@ -198,43 +232,43 @@ class Sale extends Model {
             $sqlItem = "INSERT INTO sale_items (sale_id, product_id, unit_id, quantity_sold, unit_price)
                         VALUES (:sale_id, :product_id, :unit_id, :quantity_sold, :unit_price)";
 
+            // ItemsData now contains server-calculated unit_price
             foreach ($itemsData as $item) {
                 $itemInsertParams = [
                     ':sale_id' => $saleId,
                     ':product_id' => (int)$item['product_id'],
                     ':unit_id' => (int)$item['unit_id'],
                     ':quantity_sold' => (float)$item['quantity_sold'],
-                    ':unit_price' => (float)$item['unit_price']
+                    ':unit_price' => (float)$item['unit_price'] // This is now the server-calculated price
                 ];
                 $saleItemId = $this->db->insert($sqlItem, $itemInsertParams);
 
                 if (!$saleItemId) {
                     // // $this->pdo->rollBack();
                     error_log("Failed to create sale item for product ID {$item['product_id']}.");
-                    return false;
+                    return "Échec de la création de l'article de vente pour le produit ID {$item['product_id']}.";
                 }
 
-                // Decrease product stock and create stock movement using new updateStock signature
+                // Decrease product stock and create stock movement using updateStockQuantity
                 $notes = "Sold via SA-{$saleId} (Item {$saleItemId})";
-                if (!$productModel->updateStock(
-                    (int)$item['product_id'],                // productId
-                    'out_sale',                             // movementType
-                    -(float)$item['quantity_sold'],         // NEGATIVE quantityInTransactionUnit
-                    (int)$item['unit_id'],                  // transactionUnitId
-                    $saleItemId,                            // relatedDocumentId
-                    'sale_items',                           // relatedDocumentType
-                    $notes                                  // notes
+                if (!$productModel->updateStockQuantity(
+                    (int)$item['product_id'],      // productId
+                    (int)$item['unit_id'],        // unitId
+                    -(float)$item['quantity_sold'],// quantityChange (negative)
+                    'out_sale',                   // movementType
+                    $saleItemId,                  // relatedDocumentId
+                    'sale_items',                 // relatedDocumentType
+                    $notes                        // notes
                 )) {
                     // // $this->pdo->rollBack();
-                    // The error from updateStock (e.g. "Conversion factor not found") might be more specific
-                    // than just "Failed to update stock". Consider how to bubble this up.
-                    error_log("Failed to update stock or create movement for product ID {$item['product_id']} during sale SA-{$saleId}.");
-                    return "Échec de la mise à jour du stock pour le produit ID {$item['product_id']}."; // More specific error
+                    error_log("Failed to update stock or create movement for product ID {$item['product_id']} (Unit ID: {$item['unit_id']}) during sale SA-{$saleId} using updateStockQuantity.");
+                    return "Échec de la mise à jour du stock pour le produit ID {$item['product_id']} (Unité ID: {$item['unit_id']}).";
                 }
             }
 
             // // $this->pdo->commit();
-            return $saleId;
+            // Return an array containing the sale_id and the calculated net_total_amount
+            return ['sale_id' => $saleId, 'net_total_amount' => $data['total_amount']];
 
         } catch (PDOException $e) {
             // var_dump($e);
