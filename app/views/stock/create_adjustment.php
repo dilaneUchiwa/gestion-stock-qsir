@@ -36,14 +36,8 @@
         <div class="form-group">
             <label for="unit_id">Unité de mesure *</label>
             <select name="unit_id" id="unit_id" required>
-                <option value="">Sélectionner une unité</option>
-                <?php if (isset($allUnits) && is_array($allUnits)): ?>
-                    <?php foreach ($allUnits as $unit): ?>
-                        <option value="<?php echo htmlspecialchars($unit['id']); ?>" <?php echo (isset($data['unit_id']) && $data['unit_id'] == $unit['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($unit['name'] . ' (' . $unit['symbol'] . ')'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <option value="">Sélectionner d'abord un produit</option>
+                <?php /* JavaScript will populate this */ ?>
             </select>
         </div>
 
@@ -78,3 +72,49 @@
         <a href="index.php?url=stock/index" class="button-info">Annuler</a>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productSelect = document.getElementById('product_id');
+    const unitSelect = document.getElementById('unit_id');
+    const productUnitsMap = <?php echo json_encode($productUnitsMap ?? []); ?>;
+    const preselectedProductId = '<?php echo $data['product_id'] ?? ''; ?>';
+    const preselectedUnitId = '<?php echo $data['unit_id'] ?? ''; ?>';
+
+    function populateUnits(productId, selectedUnitId = null) {
+        unitSelect.innerHTML = '<option value="">Chargement...</option>';
+        const units = productUnitsMap[productId] || [];
+
+        if (units.length === 0 && productId) {
+            unitSelect.innerHTML = '<option value="">Aucune unité configurée pour ce produit</option>';
+            return;
+        } else if (!productId) {
+            unitSelect.innerHTML = '<option value="">Sélectionner d'abord un produit</option>';
+            return;
+        }
+
+        unitSelect.innerHTML = '<option value="">Sélectionner une unité</option>';
+        units.forEach(function(unit) {
+            const option = document.createElement('option');
+            option.value = unit.unit_id; // From product_units join structure
+            option.textContent = unit.name + ' (' + unit.symbol + ')'; // From product_units join structure
+            if (unit.unit_id == selectedUnitId) {
+                option.selected = true;
+            }
+            unitSelect.appendChild(option);
+        });
+    }
+
+    productSelect.addEventListener('change', function() {
+        populateUnits(this.value);
+    });
+
+    // Initial population if a product was already selected (e.g., form repopulation on error)
+    if (preselectedProductId) {
+        populateUnits(preselectedProductId, preselectedUnitId);
+    } else {
+        // Ensure the unit select is in its default state if no product is preselected
+        unitSelect.innerHTML = '<option value="">Sélectionner d'abord un produit</option>';
+    }
+});
+</script>

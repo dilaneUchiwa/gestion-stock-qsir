@@ -255,17 +255,22 @@ document.addEventListener('DOMContentLoaded', function () {
                         const option = document.createElement('option');
                         option.value = pu.unit_id;
                         option.textContent = `${pu.name} (${pu.symbol})`;
-                        option.dataset.conversionFactor = pu.conversion_factor_to_base_unit;
+                        option.dataset.conversionFactor = pu.conversion_factor_to_base_unit; // Ensure this is correctly assigned
                         if (productEntry.base_unit_id == pu.unit_id) {
                             option.selected = true;
                         }
                         unitSelect.appendChild(option);
                     });
-                } else if (productEntry.base_unit_id && productEntry.base_unit_name) {
+                } else if (productEntry.base_unit_id && productEntry.base_unit_symbol) { // Check base_unit_symbol for consistency
                      const option = document.createElement('option');
                      option.value = productEntry.base_unit_id;
-                     option.textContent = productEntry.base_unit_name;
-                     option.dataset.conversionFactor = "1.00000";
+                     // Use base_unit_name and base_unit_symbol from product data if available, forming consistent text
+                     let baseUnitText = productEntry.base_unit_name || 'Unité de Base'; // Fallback name
+                     if (productEntry.base_unit_symbol) {
+                         baseUnitText += ` (${productEntry.base_unit_symbol})`;
+                     }
+                     option.textContent = baseUnitText;
+                     option.dataset.conversionFactor = "1.00000"; // Base unit factor is always 1
                      option.selected = true;
                      unitSelect.appendChild(option);
                 } else {
@@ -278,7 +283,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
         unitSelect.addEventListener('change', function() {
             updateStockDisplayAndMaxQty();
-            // Price logic might need update if price is per base_unit and unit selection changes price
+
+            const selectedProductOption = productSelect.options[productSelect.selectedIndex];
+            const baseProductPrice = parseFloat(selectedProductOption.dataset.price);
+            const selectedUnitOption = this.options[this.selectedIndex];
+
+            if (selectedUnitOption && selectedUnitOption.dataset.conversionFactor) { // Check if selectedUnitOption and its dataset exist
+                const conversionFactor = parseFloat(selectedUnitOption.dataset.conversionFactor);
+
+                if (!isNaN(baseProductPrice) && !isNaN(conversionFactor) && conversionFactor > 0) {
+                    const newUnitPrice = baseProductPrice * conversionFactor;
+                    priceInput.value = newUnitPrice.toFixed(2);
+                } else if (!isNaN(baseProductPrice) && selectedUnitOption.value == selectedProductOption.dataset.baseUnitId) {
+                    // Fallback for base unit if conversion factor somehow missing or invalid, price should be base price
+                    priceInput.value = baseProductPrice.toFixed(2);
+                }
+                // If conversionFactor is invalid or not found, price might remain as set by product change (base price)
+                // or from a previous valid unit selection. This behavior might need refinement if strict error handling is required.
+            } else if (selectedProductOption.dataset.baseUnitId === this.value && !isNaN(baseProductPrice)) {
+                 // Handles case where selected unit is the base unit, and its specific option might be missing conversion factor
+                 // (e.g. if populated by the fallback `else if (productEntry.base_unit_id && productEntry.base_unit_name)` block)
+                 priceInput.value = baseProductPrice.toFixed(2);
+            }
+
+
+            calculateAllTotals(); // Recalculate totals after price change
         });
 
         row.querySelector('.remove-item-btn').addEventListener('click', function() {

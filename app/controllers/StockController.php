@@ -79,18 +79,28 @@ class StockController extends Controller {
      */
     public function create_adjustment() {
         $products = $this->productModel->getAll();
-        $allUnits = $this->unitModel->getAll(); // Fetch all units
+        // $allUnits = $this->unitModel->getAll(); // Keep for fallback or if needed, but productUnitsMap is preferred
         $adjustmentTypes = [
             'initial_stock' => 'Stock Initial',
             'adjustment_in' => 'Ajustement Positif (Entrée)',
             'adjustment_out' => 'Ajustement Négatif (Sortie)'
         ];
 
+        $productUnitsMap = [];
+        if ($products) {
+            foreach ($products as $product) {
+                $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+            }
+        }
+
         $this->renderView('stock/create_adjustment', [
             'products' => $products,
-            'allUnits' => $allUnits,
+            // 'allUnits' => $allUnits, // Can be removed if productUnitsMap is comprehensive and always used
+            'productUnitsMap' => $productUnitsMap, // Add this
             'adjustmentTypes' => $adjustmentTypes,
-            'title' => 'Effectuer un ajustement de stock / Stock Initial'
+            'title' => 'Effectuer un ajustement de stock / Stock Initial',
+            'data' => [], // For initial load
+            'errors' => [] // For initial load
         ]);
     }
 
@@ -163,10 +173,17 @@ class StockController extends Controller {
 
             if (!empty($errors)) {
                 $products = $this->productModel->getAll();
-                $allUnits = $this->unitModel->getAll();
+                // $allUnits = $this->unitModel->getAll(); // Same as in create_adjustment
+                $productUnitsMap = [];
+                if ($products) {
+                    foreach ($products as $product) {
+                        $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+                    }
+                }
                 $this->renderView('stock/create_adjustment', [
                     'products' => $products,
-                    'allUnits' => $allUnits,
+                    // 'allUnits' => $allUnits,
+                    'productUnitsMap' => $productUnitsMap, // Pass it here too
                     'adjustmentTypes' => $adjustmentTypes,
                     'errors' => $errors,
                     'data' => $_POST, // Repopulate form with submitted data
@@ -192,10 +209,17 @@ class StockController extends Controller {
             } else {
                 $errors['general'] = "Échec de la création de l'ajustement de stock. Vérifiez les logs pour plus de détails.";
                 $products = $this->productModel->getAll();
-                $allUnits = $this->unitModel->getAll();
+                // $allUnits = $this->unitModel->getAll();
+                $productUnitsMap = [];
+                if ($products) {
+                    foreach ($products as $product) {
+                        $productUnitsMap[$product['id']] = $this->productModel->getUnitsForProduct($product['id']);
+                    }
+                }
                 $this->renderView('stock/create_adjustment', [
                     'products' => $products,
-                    'allUnits' => $allUnits,
+                    // 'allUnits' => $allUnits,
+                    'productUnitsMap' => $productUnitsMap, // And here
                     'adjustmentTypes' => $adjustmentTypes,
                     'errors' => $errors,
                     'data' => $_POST,

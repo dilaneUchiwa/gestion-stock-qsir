@@ -24,6 +24,7 @@ class Product extends Model {
             return false;
         }
 
+        // purchase_price and selling_price are for the base unit
         $fields = ['name', 'description', 'category_id', 'base_unit_id', 'purchase_price', 'selling_price'];
         $params = [];
         $columns = [];
@@ -356,6 +357,7 @@ class Product extends Model {
         }
 
         // quantity_in_stock column no longer exists in products table.
+        // purchase_price and selling_price are for the base unit
         $fields = ['name', 'description', 'category_id', /* 'base_unit_id', */ 'purchase_price', 'selling_price'];
         $params = [':id' => $id];
         $setParts = [];
@@ -654,6 +656,94 @@ class Product extends Model {
 
         // $this->db->commit();
         return true;
+    }
+
+    /**
+     * Retrieves the selling price for a specific unit of a product.
+     *
+     * @param int $productId The ID of the product.
+     * @param int $unitId The ID of the unit.
+     * @return float|null The selling price for the given unit, or null if not found or error.
+     */
+    public function getSalePriceForUnit(int $productId, int $unitId): ?float {
+        $product = $this->getById($productId);
+        if (!$product) {
+            error_log("Product not found with ID {$productId} in getSalePriceForUnit.");
+            return null;
+        }
+
+        if ($unitId == $product['base_unit_id']) {
+            return (float)$product['selling_price'];
+        }
+
+        // Fetch conversion factor for the alternative unit
+        $sql = "SELECT conversion_factor_to_base_unit FROM product_units WHERE product_id = :product_id AND unit_id = :unit_id";
+        try {
+            $unitData = $this->db->select($sql, [':product_id' => $productId, ':unit_id' => $unitId]);
+            if ($unitData && isset($unitData[0]['conversion_factor_to_base_unit'])) {
+                $conversionFactor = (float)$unitData[0]['conversion_factor_to_base_unit'];
+                if ($conversionFactor <= 0) {
+                    error_log("Invalid conversion factor (<=0) for product ID {$productId}, unit ID {$unitId}.");
+                    return null;
+                }
+                // Ensure base selling price is numeric
+                if (!is_numeric($product['selling_price'])) {
+                    error_log("Base selling price for product ID {$productId} is not numeric.");
+                    return null;
+                }
+                return (float)$product['selling_price'] * $conversionFactor;
+            } else {
+                error_log("Unit ID {$unitId} not found or no conversion factor for product ID {$productId}.");
+                return null;
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching unit conversion factor for product ID {$productId}, unit ID {$unitId}: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves the purchase price for a specific unit of a product.
+     *
+     * @param int $productId The ID of the product.
+     * @param int $unitId The ID of the unit.
+     * @return float|null The purchase price for the given unit, or null if not found or error.
+     */
+    public function getPurchasePriceForUnit(int $productId, int $unitId): ?float {
+        $product = $this->getById($productId);
+        if (!$product) {
+            error_log("Product not found with ID {$productId} in getPurchasePriceForUnit.");
+            return null;
+        }
+
+        if ($unitId == $product['base_unit_id']) {
+            return (float)$product['purchase_price'];
+        }
+
+        // Fetch conversion factor for the alternative unit
+        $sql = "SELECT conversion_factor_to_base_unit FROM product_units WHERE product_id = :product_id AND unit_id = :unit_id";
+        try {
+            $unitData = $this->db->select($sql, [':product_id' => $productId, ':unit_id' => $unitId]);
+            if ($unitData && isset($unitData[0]['conversion_factor_to_base_unit'])) {
+                $conversionFactor = (float)$unitData[0]['conversion_factor_to_base_unit'];
+                if ($conversionFactor <= 0) {
+                    error_log("Invalid conversion factor (<=0) for product ID {$productId}, unit ID {$unitId}.");
+                    return null;
+                }
+                // Ensure base purchase price is numeric
+                if (!is_numeric($product['purchase_price'])) {
+                    error_log("Base purchase price for product ID {$productId} is not numeric.");
+                    return null;
+                }
+                return (float)$product['purchase_price'] * $conversionFactor;
+            } else {
+                error_log("Unit ID {$unitId} not found or no conversion factor for product ID {$productId}.");
+                return null;
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching unit conversion factor for product ID {$productId}, unit ID {$unitId}: " . $e->getMessage());
+            return null;
+        }
     }
 }
 ?>

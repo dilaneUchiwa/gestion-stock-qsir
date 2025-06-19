@@ -55,11 +55,11 @@
     <fieldset>
         <legend>Tarification et stock</legend>
         <div class="form-group">
-            <label for="purchase_price">Prix d'achat</label>
+            <label for="purchase_price">Prix d'achat</label> <small>(pour l'unité de base sélectionnée)</small>
             <input type="number" name="purchase_price" id="purchase_price" value="<?php echo htmlspecialchars($data['purchase_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>
         <div class="form-group">
-            <label for="selling_price">Prix de vente</label>
+            <label for="selling_price">Prix de vente</label> <small>(pour l'unité de base sélectionnée)</small>
             <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($data['selling_price'] ?? ''); ?>" step="0.01" min="0" placeholder="ex: 19.99">
         </div>
     </fieldset>

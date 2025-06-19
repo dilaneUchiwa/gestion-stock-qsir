@@ -79,8 +79,8 @@ CREATE INDEX IF NOT EXISTS idx_products_base_unit_id ON products(base_unit_id);
 
 COMMENT ON COLUMN products.category_id IS 'ID of the product category from product_categories table.';
 COMMENT ON COLUMN products.base_unit_id IS 'ID of the base unit of measure for this product from units table (e.g., piece, kg).';
-COMMENT ON COLUMN products.purchase_price IS 'Cost price of the product.';
-COMMENT ON COLUMN products.selling_price IS 'Retail price of the product.';
+COMMENT ON COLUMN products.purchase_price IS 'Cost price of the product in its base unit.';
+COMMENT ON COLUMN products.selling_price IS 'Retail price of the product in its base unit.';
 
 
 -- Table client_categories
@@ -137,6 +137,27 @@ CREATE INDEX IF NOT EXISTS idx_product_units_unit_id ON product_units(unit_id);
 
 COMMENT ON TABLE product_units IS 'Links products to their alternative units of measure and defines the conversion factor to the product''s base unit. The base unit of a product will also have an entry here with a factor of 1.';
 COMMENT ON COLUMN product_units.conversion_factor_to_base_unit IS 'Factor to convert this unit to the base unit of the product (e.g., if base unit is "piece" and this unit is "carton of 12", factor is 12.00000).';
+
+-- Table product_stock_per_unit
+CREATE TABLE IF NOT EXISTS product_stock_per_unit (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    unit_id INTEGER NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+    quantity DECIMAL(12, 3) NOT NULL DEFAULT 0.000,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_product_stock_unit UNIQUE (product_id, unit_id)
+);
+
+CREATE TRIGGER update_product_stock_per_unit_updated_at
+BEFORE UPDATE ON product_stock_per_unit
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE product_stock_per_unit IS 'Stores the current stock quantity for each product in each of its configured units of measure.';
+COMMENT ON COLUMN product_stock_per_unit.product_id IS 'Reference to the product.';
+COMMENT ON COLUMN product_stock_per_unit.unit_id IS 'Reference to the unit of measure for this stock record.';
+COMMENT ON COLUMN product_stock_per_unit.quantity IS 'Current stock quantity of the product in this specific unit.';
 
 
 -- Script to create the suppliers table for PostgreSQL

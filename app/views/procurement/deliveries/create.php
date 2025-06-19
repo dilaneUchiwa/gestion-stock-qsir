@@ -128,16 +128,16 @@
                         <td class="text-right"><?php echo htmlspecialchars($item['quantity_pending'] ?? $item['quantity_ordered'] ?? 'N/A'); ?> <?php echo htmlspecialchars($item['unit_symbol'] ?? ''); ?></td>
                     <?php endif; ?>
 
-                    <td>
-                        <?php if ($purchaseOrder && $currentUnitId && $currentUnitName): ?>
-                            <input type="hidden" name="items[<?php echo $idx; ?>][unit_id]" value="<?php echo htmlspecialchars($currentUnitId); ?>">
-                            <span><?php echo htmlspecialchars($currentUnitName . ($currentUnitSymbol ? ' ('.$currentUnitSymbol.')' : '')); ?></span>
-                        <?php else: ?>
-                            <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select" required data-index="<?php echo $idx; ?>" data-selected-unit-id="<?php echo htmlspecialchars($currentUnitId); ?>">
-                                <option value="">Sélectionnez produit</option>
-                                <?php /* JS will populate this if product is selected, or repopulate if $currentUnitId is set */ ?>
-                            </select>
-                        <?php endif; ?>
+                    <td> <!-- Unité (Réception) Column -->
+                        <select name="items[<?php echo $idx; ?>][unit_id]" class="unit-select reception-unit-select" required data-index="<?php echo $idx; ?>" data-product-id="<?php echo htmlspecialchars($productId); ?>" data-selected-unit-id="<?php echo htmlspecialchars($currentUnitId); /* This is the PO's unit_id or form repopulation */ ?>">
+                            <option value="">Chargement...</option>
+                            <?php
+                            // JavaScript will primarily handle populating this.
+                            // For initial load with PO, JS will find this select, see data-product-id and data-selected-unit-id,
+                            // then populate it with units from productUnitsMap[productId] and select the data-selected-unit-id.
+                            // For direct delivery (non-PO), the existing product-select change handler will call populateUnitSelect.
+                            ?>
+                        </select>
                     </td>
                     <td>
                         <input type="number" name="items[<?php echo $idx; ?>][quantity_received]" class="quantity-input"
@@ -180,12 +180,11 @@ document.addEventListener('DOMContentLoaded', function () {
         ];
     }, $products)); ?>;
     const productUnitsMap = <?php echo json_encode($productUnitsMap ?? []); ?>; // Map of [productId => [units...]]
-    // const allUnitsData = <?php echo json_encode($units ?? []); ?>; // Full list of all units, if needed for fallback
-
     let itemIndex = itemsTbody.querySelectorAll('.item-row').length;
     const isPoBased = <?php echo $purchaseOrder ? 'true' : 'false'; ?>;
 
     function populateUnitSelect(unitSelectElement, productId, selectedUnitId = null) {
+        // console.log("Populating unit select for product:", productId, "selected unit:", selectedUnitId, "element:", unitSelectElement);
         unitSelectElement.innerHTML = '<option value="">Chargement...</option>';
         const productEntry = productsData.find(p => p.id == productId); // Find basic info
         const unitsForProduct = productUnitsMap[productId] || []; // Get specific units
@@ -218,24 +217,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function addRowEventListeners(row) {
-        const productSelect = row.querySelector('.product-select');
-        const unitSelect = row.querySelector('.unit-select');
+        const productSelect = row.querySelector('.product-select'); // Might be null for PO-based rows if product is static text
+        const unitSelect = row.querySelector('.unit-select.reception-unit-select'); // Target the specific select
 
-        // This event listener is primarily for non-PO based rows, or rows where product can be changed.
-        if (productSelect && unitSelect && !productSelect.hasAttribute('readonly') && !unitSelect.hasAttribute('readonly')) {
-            productSelect.addEventListener('change', function() {
-                const productId = this.value;
-                populateUnitSelect(unitSelect, productId);
-            });
+        if (unitSelect) { // Ensure unitSelect exists
+            if (productSelect && !isPoBased) { // For direct delivery, product can change
+                productSelect.addEventListener('change', function() {
+                    const newProductId = this.value;
+                    populateUnitSelect(unitSelect, newProductId); // Default to base unit of new product
+                });
 
-            // For existing rows on form load (e.g., direct delivery with validation errors)
-            // If product is selected and unit select is present and not readonly.
-            if (productSelect.value) {
-                const selectedUnit = unitSelect.dataset.selectedUnitId || (productUnitsMap[productSelect.value] && productUnitsMap[productSelect.value].find(u => u.unit_id == productsData.find(p=>p.id == productSelect.value)?.base_unit_id)?.unit_id);
-                populateUnitSelect(unitSelect, productSelect.value, selectedUnit);
+                // Initial population for direct delivery rows if product is already selected (e.g. validation error)
+                if (productSelect.value) {
+                    const initialSelectedUnitId = unitSelect.dataset.selectedUnitId || null;
+                    populateUnitSelect(unitSelect, productSelect.value, initialSelectedUnitId);
+                }
+            } else if (isPoBased) {
+                // For PO-based rows, product is fixed. We already have productId from data-attribute.
+                // This is handled by the initial loop over .reception-unit-select below.
+                // No change listener needed for productSelect here as it's typically not there or is readonly.
             }
         }
     }
+
+    // Initial population for all reception unit selects on page load
+    // This is crucial for both PO-based items and direct delivery items with pre-filled/error data.
+    document.querySelectorAll('.unit-select.reception-unit-select').forEach(select => {
+        const productId = select.dataset.productId;
+        const selectedUnitId = select.dataset.selectedUnitId;
+        if (productId) {
+            populateUnitSelect(select, productId, selectedUnitId);
+        } else {
+            // If no product ID (e.g. empty row for direct delivery), set a default state
+            select.innerHTML = '<option value="">Sélectionnez produit d\'abord</option>';
+        }
+    });
 
     function updateItemIndices() {
         let currentIdx = 0;
@@ -295,18 +311,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Initial setup for existing rows (especially for direct deliveries with errors)
+    // Initial setup for event listeners on rows (mostly for direct delivery product changes and remove buttons)
     itemsTbody.querySelectorAll('.item-row').forEach(row => {
-        if (row.querySelector('.product-select') && !row.querySelector('.product-select').hasAttribute('readonly')) { // only for editable rows
-            addRowEventListeners(row);
-        }
-        // Add remove listener for any pre-existing removable rows (e.g. form repopulation for direct delivery)
+        addRowEventListeners(row); // Sets up product change listener for direct delivery
+
+        // Add remove listener for any pre-existing removable rows
         const removeBtn = row.querySelector('.remove-item-btn');
-        if (removeBtn && (!isPoBased || row.dataset.canBeRemoved === 'true')) { // Assuming data-can-be-removed for specific cases
-             removeBtn.addEventListener('click', function() {
-                this.closest('.item-row').remove();
-                updateItemIndices();
-            });
+        if (removeBtn) {
+            // Logic for enabling/disabling or handling remove based on isPoBased or other conditions
+            if (!isPoBased) { // Standard remove for direct delivery items
+                 removeBtn.addEventListener('click', function() {
+                    this.closest('.item-row').remove();
+                    updateItemIndices();
+                });
+            } else {
+                // For PO-based, removal might be conditional (e.g. if quantity_pending is 0)
+                // For now, if button is there, it works. PHP controls presence of button.
+                 if(this.closest('.item-row').querySelector('input[name*="[product_id]"]')) { // Check if it's a PO row with a product
+                    // No general remove for PO items unless specifically allowed by PHP
+                 }
+            }
         }
     });
 });

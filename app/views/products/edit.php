@@ -65,11 +65,11 @@
             <small>Le stock est géré via les livraisons, les ventes ou les ajustements de stock. <a href="index.php?url=stock/history/<?php echo $product['id']; ?>">Voir l'historique</a> ou <a href="index.php?url=stock/create_adjustment&product_id=<?php echo $product['id']; ?>">créer un ajustement</a>.</small>
         </div>
         <div class="form-group">
-            <label for="purchase_price">Prix d'achat</label>
+            <label for="purchase_price">Prix d'achat</label> <small>(pour l'unité de base)</small>
             <input type="number" name="purchase_price" id="purchase_price" value="<?php echo htmlspecialchars($product['purchase_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>
         <div class="form-group">
-            <label for="selling_price">Prix de vente</label>
+            <label for="selling_price">Prix de vente</label> <small>(pour l'unité de base)</small>
             <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($product['selling_price'] ?? ''); ?>" step="0.01" min="0" placeholder="ex: 19.99">
         </div>
     </fieldset>

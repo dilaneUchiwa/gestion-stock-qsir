@@ -64,7 +64,7 @@
                     <th>Produit *</th>
                     <th>Unité *</th>
                     <th>Quantité *</th>
-                    <th>Prix unitaire *</th>
+                    <th>Prix unitaire * <small>(par unité sélectionnée)</small></th>
                     <th>Sous-total</th>
                     <th>Action</th>
                 </tr>
