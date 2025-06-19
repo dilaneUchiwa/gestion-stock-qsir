@@ -4,7 +4,7 @@ require_once ROOT_PATH . '/core/Model.php';
 
 class Delivery extends Model {
 
-    protected $tableName = 'deliveries';
+    public $tableName = 'deliveries';
     public $allowedTypes = ['purchase', 'free_sample', 'return', 'other']; // 'return' for customer returns if used here
 
     public function __construct(Database $dbInstance) {
@@ -19,6 +19,17 @@ class Delivery extends Model {
      * @return string|false The ID of the newly created delivery or false on failure.
      */
     public function createDelivery(array $data, array $itemsData) {
+        if (isset($data['is_partial'])) {
+            if ($data['is_partial'] === '' || $data['is_partial'] === null) {
+                $data['is_partial'] = false;
+            } else {
+                $data['is_partial'] = filter_var($data['is_partial'], FILTER_VALIDATE_BOOLEAN);
+            }
+        }else{
+            $data['is_partial'] = false;
+        }
+
+
         // Validate Delivery data
         if (empty($data['delivery_date'])) {
             error_log("Delivery Date is required.");
@@ -44,7 +55,7 @@ class Delivery extends Model {
             // TODO: Validate that unit_id is a valid unit for the product_id from product_units table
         }
 
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
         try {
             // Insert Delivery Header
             $deliveryFields = ['purchase_order_id', 'supplier_id', 'delivery_date', 'is_partial', 'notes', 'type'];
@@ -52,13 +63,30 @@ class Delivery extends Model {
             $deliveryColumns = [];
             $deliveryPlaceholders = [];
 
-            foreach ($deliveryFields as $field) {
-                if (isset($data[$field])) {
-                    $deliveryColumns[] = $field;
-                    $deliveryPlaceholders[] = ':' . $field;
-                    $deliveryParams[':' . $field] = ($data[$field] === '' && in_array($field, ['purchase_order_id', 'supplier_id', 'notes'])) ? null : $data[$field];
-                }
+// Validation sécurisée pour les champs booléens, en particulier 'is_partial'
+foreach ($deliveryFields as $field) {
+    if (isset($data[$field])) {
+        $deliveryColumns[] = $field;
+        $deliveryPlaceholders[] = ':' . $field;
+
+        // Traitement spécifique pour le champ 'is_partial'
+        if ($field === 'is_partial') {
+            // Si 'is_partial' est une chaîne vide ou null, on la remplace par false
+            if ($data[$field] === '' || $data[$field] === null) {
+                $deliveryParams[':' . $field] = false;
+            } else {
+                // Sinon, on convertit en booléen
+                $deliveryParams[':' . $field] = filter_var($data[$field], FILTER_VALIDATE_BOOLEAN);
             }
+        } elseif (in_array($field, ['purchase_order_id', 'supplier_id', 'notes'])) {
+            // Pour ces champs, on met null si la valeur est une chaîne vide
+            $deliveryParams[':' . $field] = ($data[$field] === '') ? null : $data[$field];
+        } else {
+            // Sinon, on passe la valeur telle quelle
+            $deliveryParams[':' . $field] = $data[$field];
+        }
+    }
+}
              if (!isset($data['type'])) { // Default type
                 $deliveryColumns[] = 'type';
                 $deliveryPlaceholders[] = ':type';
@@ -70,13 +98,18 @@ class Delivery extends Model {
                  $deliveryParams[':is_partial'] = false; // Will be updated after checking items against PO
             }
 
+            if($deliveryParams[':is_partial']){
+                $deliveryParams[':is_partial'] = 1;
+            }else{
+                $deliveryParams[':is_partial'] = 0;
+            }
 
             $sqlDelivery = "INSERT INTO {$this->tableName} (" . implode(', ', $deliveryColumns) . ", created_at, updated_at)
                             VALUES (" . implode(', ', $deliveryPlaceholders) . ", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
             $deliveryId = $this->db->insert($sqlDelivery, $deliveryParams);
 
             if (!$deliveryId) {
-                $this->pdo->rollBack();
+                // $this->pdo->rollBack();
                 error_log("Failed to create delivery header.");
                 return false;
             }
@@ -100,7 +133,7 @@ class Delivery extends Model {
                 $deliveryItemId = $this->db->insert($sqlItem, $itemInsertParams);
 
                 if (!$deliveryItemId) {
-                    $this->pdo->rollBack();
+                    // $this->pdo->rollBack();
                     error_log("Failed to create delivery item for product ID {$item['product_id']}.");
                     return false;
                 }
@@ -122,7 +155,7 @@ class Delivery extends Model {
                         'delivery_items',    // relatedDocumentType
                         $notes               // notes
                     )) {
-                        $this->pdo->rollBack();
+                        // $this->pdo->rollBack();
                         error_log("Failed to update stock or create movement for product ID {$item['product_id']}.");
                         return false;
                     }
@@ -158,7 +191,7 @@ class Delivery extends Model {
 
                 $newPoStatus = $isFullyReceived ? 'received' : 'partially_received';
                 if (!$poModel->updateStatus($data['purchase_order_id'], $newPoStatus)) {
-                     $this->pdo->rollBack();
+                     // $this->pdo->rollBack();
                      error_log("Failed to update PO status for PO ID {$data['purchase_order_id']}.");
                      return false;
                 }
@@ -175,11 +208,12 @@ class Delivery extends Model {
 
             }
 
-            $this->pdo->commit();
+            // $this->pdo->commit();
             return $deliveryId;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
+            // var_dump($e);
             error_log("Error creating delivery with items: " . $e->getMessage());
             return false;
         }
@@ -295,13 +329,13 @@ class Delivery extends Model {
     // If deletion is allowed, stock quantities must be reverted. This is complex.
     // For this subtask, a simple delete is implemented, but in a real system, this would need more thought.
     public function deleteDelivery($deliveryId) {
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
         try {
             $deliveryItems = $this->getItemsForDelivery($deliveryId);
             $deliveryHeader = $this->getById($deliveryId);
 
             if (!$deliveryHeader) {
-                $this->pdo->rollBack();
+                // $this->pdo->rollBack();
                 return false; // Delivery not found
             }
 
@@ -313,7 +347,7 @@ class Delivery extends Model {
                 foreach ($deliveryItems as $item) {
                     $productDetails = $productModel->getById($item['product_id']);
                     if (!$productDetails) {
-                        $this->pdo->rollBack();
+                        // $this->pdo->rollBack();
                         error_log("Product ID {$item['product_id']} not found for stock reversal during delivery deletion.");
                         return false;
                     }
@@ -329,7 +363,7 @@ class Delivery extends Model {
                             }
                         }
                         if ($conversionFactor === null || $conversionFactor == 0) {
-                            $this->pdo->rollBack();
+                            // $this->pdo->rollBack();
                             error_log("Conversion factor not found or invalid for stock reversal: product ID {$item['product_id']}, unit ID {$item['unit_id']}.");
                             return false;
                         }
@@ -348,7 +382,7 @@ class Delivery extends Model {
                         'delivery_items',         // relatedDocumentType
                         $reversalNotes            // notes
                     )) {
-                        $this->pdo->rollBack();
+                        // $this->pdo->rollBack();
                         error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during delivery deletion.");
                         return false;
                     }
@@ -402,17 +436,17 @@ class Delivery extends Model {
                 }
 
                 if (!$poModel->updateStatus($deliveryHeader['purchase_order_id'], $newPoStatus)) {
-                     $this->pdo->rollBack();
+                     // $this->pdo->rollBack();
                      error_log("Failed to update PO status after deleting delivery for PO ID {$deliveryHeader['purchase_order_id']}.");
                      return false;
                 }
             }
 
-            $this->pdo->commit();
+            // $this->pdo->commit();
             return $rowCount > 0;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             error_log("Error deleting delivery ID {$deliveryId}: " . $e->getMessage());
             return false;
         }

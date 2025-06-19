@@ -5,7 +5,7 @@
 **Composants :**
 *   Navigateur Web
 *   Routeur (`public/index.php`)
-*   Contrôleur de Catégorie Spécifique (ex: `ProductCategoriesController.php`, `ClientCategoriesController.php`, `SupplierCategoriesController.php`) - Ci-après dénommé `EntityTypeCategoriesController.php`
+*   Contrôleur de Catégorie Spécifique (ex: `ProductcategoriesController.php`, `ClientCategoriesController.php`, `SupplierCategoriesController.php`) - Ci-après dénommé `EntityTypeCategoriesController.php`
 *   Modèle de Catégorie Spécifique (ex: `ProductCategoryModel.php`, `ClientCategoryModel.php`, `SupplierCategoryModel.php`) - Ci-après dénommé `EntityTypeCategoryModel.php`
 *   `Database.php` (Classe Core)
 *   Base de Données (PostgreSQL)

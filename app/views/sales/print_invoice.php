@@ -147,7 +147,7 @@
             <p>Merci de votre achat !</p>
             <p>Conditions de paiement : ...</p>
         </div>
-         <div class="no-print" style="text-align:center; margin-top:20px;">
+         <div class="no-priwnt" style="text-align:center; margin-top:20px;">
             <button onclick="window.print();">Imprimer cette facture</button>
             <button onclick="window.close();">Fermer</button>
         </div>

@@ -1,8 +1,8 @@
 <?php
 
 class Model {
-    protected $db; // Holds the Database class instance
-    protected $pdo; // Holds the PDO connection object
+    public $db; // Holds the Database class instance
+    public $pdo; // Holds the PDO connection object
 
     /**
      * Constructor for the base Model.

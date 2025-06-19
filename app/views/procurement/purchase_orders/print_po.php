@@ -116,10 +116,10 @@
         </div>
 
         <div class="footer">
-            <p>Bon de commande généré le <?php echo date('d/m/Y H:i'); ?> par le système ERP.</p>
+            <p>Bon de commande généré le <?php echo date('d/m/Y H:i'); ?> par le système MALIKA.</p>
         </div>
 
-         <div class="no-print" style="text-align:center; margin-top:20px;">
+         <div class="no-prinWt" style="text-align:center; margin-top:20px;">
             <button onclick="window.print();">Imprimer ce Bon de Commande</button>
             <button onclick="window.close();">Fermer</button>
         </div>

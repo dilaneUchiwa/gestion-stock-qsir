@@ -205,7 +205,7 @@ footer {
 }
 
 /* Buttons */
-.button, button { /* Apply to <button> elements as well */
+.button, .btn, button { /* Apply to <button> elements as well */
     display: inline-block;
     font-weight: 500;
     color: #fff;
@@ -221,20 +221,20 @@ footer {
     text-decoration: none; /* Remove underline from <a> styled as buttons */
     transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
-.button:hover, button:hover {
+.button:hover, .btn:hover, button:hover {
     background-color: #0069d9;
     border-color: #0062cc;
     color: #fff; /* Ensure text color remains white */
     text-decoration: none;
 }
-.button-info { background-color: #17a2b8; border-color: #17a2b8; }
-.button-info:hover { background-color: #138496; border-color: #117a8b; }
-.button-danger { background-color: #dc3545; border-color: #dc3545; }
-.button-danger:hover { background-color: #c82333; border-color: #bd2130; }
-.button-warning { background-color: #ffc107; border-color: #ffc107; color: #212529; } /* Dark text for yellow */
-.button-warning:hover { background-color: #e0a800; border-color: #d39e00; color: #212529; }
-.button-success { background-color: #28a745; border-color: #28a745; }
-.button-success:hover { background-color: #218838; border-color: #1e7e34; }
+.button-info, .btn-info { background-color: #17a2b8; border-color: #17a2b8; }
+.button-info:hover, .btn-info:hover { background-color: #138496; border-color: #117a8b; }
+.button-danger, .btn-danger { background-color: #dc3545; border-color: #dc3545; }
+.button-danger:hover, .btn-danger:hover { background-color: #c82333; border-color: #bd2130; }
+.button-warning, .btn-warning { background-color: #ffc107; border-color: #ffc107; color: #212529; } /* Dark text for yellow */
+.button-warning:hover, .btn-warning:hover { background-color: #e0a800; border-color: #d39e00; color: #212529; }
+.button-success, .btn-success { background-color: #28a745; border-color: #28a745; }
+.button-success:hover, .btn-success:hover { background-color: #218838; border-color: #1e7e34; }
 
 /* Tables */
 .table {
@@ -369,7 +369,7 @@ fieldset legend {
     }
     h1 { font-size: 1.75rem; }
     h2 { font-size: 1.4rem; }
-    .button, button {
+    .button, .btn, button {
         font-size: 0.95rem;
         padding: 0.55rem 0.85rem;
     }
@@ -393,7 +393,7 @@ fieldset legend {
         color: #000;
         font-size: 12pt; /* Adjust for print */
     }
-    header, footer, nav, form fieldset legend + button, .button, button, form fieldset a.button-info, #addItemBtn, .remove-item-btn, .report-list + style + div button {
+    header, footer, nav, form fieldset legend + button, .button, .btn, button, form fieldset a.button-info, form fieldset a.btn-info, #addItemBtn, .remove-item-btn, .report-list + style + div button {
         display: none !important; /* Hide non-essential elements */
     }
     .container {
@@ -447,4 +447,4 @@ fieldset legend {
 .item-row td {
     vertical-align: middle; /* Align content in table cells vertically */
 }
-```
+

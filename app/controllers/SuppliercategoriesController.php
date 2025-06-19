@@ -2,26 +2,26 @@
 
 require_once ROOT_PATH . '/core/Controller.php';
 
-class ClientCategoriesController extends Controller {
+class SuppliercategoriesController extends Controller {
 
-    private $clientCategoryModel;
+    private $supplierCategoryModel;
 
     public function __construct() {
         parent::__construct();
-        $this->clientCategoryModel = $this->loadModel('ClientCategory');
+        $this->supplierCategoryModel = $this->loadModel('SupplierCategory');
     }
 
     public function index() {
-        $categories = $this->clientCategoryModel->getAll();
-        $this->renderView('client_categories/index', [
-            'title' => 'Catégories de Clients',
+        $categories = $this->supplierCategoryModel->getAll();
+        $this->renderView('supplier_categories/index', [
+            'title' => 'Catégories de Fournisseurs',
             'categories' => $categories
         ]);
     }
 
     public function create() {
-        $this->renderView('client_categories/create', [
-            'title' => 'Créer une catégorie de clients',
+        $this->renderView('supplier_categories/create', [
+            'title' => 'Créer une catégorie de fournisseurs',
             'data' => [],
             'errors' => []
         ]);
@@ -40,40 +40,40 @@ class ClientCategoriesController extends Controller {
             }
 
             if (!empty($errors)) {
-                $this->renderView('client_categories/create', [
-                    'title' => 'Créer une catégorie de clients',
+                $this->renderView('supplier_categories/create', [
+                    'title' => 'Créer une catégorie de fournisseurs',
                     'data' => $data,
                     'errors' => $errors
                 ]);
                 return;
             }
 
-            $createdId = $this->clientCategoryModel->create($data);
+            $createdId = $this->supplierCategoryModel->create($data);
 
             if ($createdId) {
-                header("Location: /index.php?url=clientcategories/index&status=created_success");
+                header("Location: /index.php?url=suppliercategories/index&status=created_success");
                 exit;
             } else {
                 $errors['general'] = 'Échec de la création de la catégorie. Le nom est peut-être déjà utilisé.';
-                $this->renderView('client_categories/create', [
-                    'title' => 'Créer une catégorie de clients',
+                $this->renderView('supplier_categories/create', [
+                    'title' => 'Créer une catégorie de fournisseurs',
                     'data' => $data,
                     'errors' => $errors
                 ]);
             }
         } else {
-            header("Location: /index.php?url=clientcategories/create");
+            header("Location: /index.php?url=suppliercategories/create");
             exit;
         }
     }
 
     public function edit($id) {
-        $category = $this->clientCategoryModel->getById($id);
+        $category = $this->supplierCategoryModel->getById($id);
         if (!$category) {
-            $this->renderView('errors/404', ['message' => "Catégorie de client avec l'ID {$id} non trouvée."]);
+            $this->renderView('errors/404', ['message' => "Catégorie de fournisseur avec l'ID {$id} non trouvée."]);
             return;
         }
-        $this->renderView('client_categories/edit', [
+        $this->renderView('supplier_categories/edit', [
             'title' => 'Modifier la catégorie : ' . htmlspecialchars($category['name']),
             'category' => $category,
             'errors' => []
@@ -82,9 +82,9 @@ class ClientCategoriesController extends Controller {
 
     public function update($id) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $category = $this->clientCategoryModel->getById($id); // For checking existence
+            $category = $this->supplierCategoryModel->getById($id);
             if (!$category) {
-                $this->renderView('errors/404', ['message' => "Catégorie de client avec l'ID {$id} non trouvée pour la mise à jour."]);
+                $this->renderView('errors/404', ['message' => "Catégorie de fournisseur avec l'ID {$id} non trouvée pour la mise à jour."]);
                 return;
             }
 
@@ -99,46 +99,46 @@ class ClientCategoriesController extends Controller {
             }
 
             if (!empty($errors)) {
-                $this->renderView('client_categories/edit', [
+                $this->renderView('supplier_categories/edit', [
                     'title' => 'Modifier la catégorie : ' . htmlspecialchars($category['name']),
-                    'category' => array_merge($category, $data), // Show submitted data on error
+                    'category' => array_merge($category, $data),
                     'errors' => $errors
                 ]);
                 return;
             }
 
-            $updatedRows = $this->clientCategoryModel->update($id, $data);
+            $updatedRows = $this->supplierCategoryModel->update($id, $data);
 
             if ($updatedRows !== false) {
-                header("Location: /index.php?url=clientcategories/index&status=updated_success");
+                header("Location: /index.php?url=suppliercategories/index&status=updated_success");
                 exit;
             } else {
                 $errors['general'] = 'Échec de la mise à jour de la catégorie. Le nom est peut-être déjà utilisé par une autre catégorie ou aucune donnée n\'a changé.';
-                 $this->renderView('client_categories/edit', [
+                 $this->renderView('supplier_categories/edit', [
                     'title' => 'Modifier la catégorie : ' . htmlspecialchars($category['name']),
                     'category' => array_merge($category, $data),
                     'errors' => $errors
                 ]);
             }
         } else {
-            header("Location: /index.php?url=clientcategories/edit/{$id}");
+            header("Location: /index.php?url=suppliercategories/edit/{$id}");
             exit;
         }
     }
 
     public function destroy($id) {
-        $category = $this->clientCategoryModel->getById($id);
+        $category = $this->supplierCategoryModel->getById($id);
         if (!$category) {
-            header("Location: /index.php?url=clientcategories/index&status=delete_not_found");
+            header("Location: /index.php?url=suppliercategories/index&status=delete_not_found");
             exit;
         }
 
-        $deletedRows = $this->clientCategoryModel->delete($id);
+        $deletedRows = $this->supplierCategoryModel->delete($id);
         if ($deletedRows) {
-            header("Location: /index.php?url=clientcategories/index&status=deleted_success");
+            header("Location: /index.php?url=suppliercategories/index&status=deleted_success");
             exit;
         } else {
-            header("Location: /index.php?url=clientcategories/index&status=delete_failed");
+            header("Location: /index.php?url=suppliercategories/index&status=delete_failed");
             exit;
         }
     }

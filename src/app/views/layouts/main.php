@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title ?? 'ERPNextClone'; ?></title>
+    <title><?php echo $title ?? 'MALIKA'; ?></title>
     <link rel="stylesheet" href="public/css/style.css"> <!-- Lien vers la nouvelle feuille de style -->
     <!-- Autres éléments de l'en-tête comme les favicons, etc. -->
 </head>

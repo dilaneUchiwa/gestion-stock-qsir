@@ -2,7 +2,7 @@
 
 require_once ROOT_PATH . '/core/Controller.php';
 
-class ProductCategoriesController extends Controller {
+class ProductcategoriesController extends Controller {
 
     private $productCategoryModel;
 

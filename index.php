@@ -5,7 +5,9 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-define('ROOT_PATH',__DIR__);
+if (!defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__); // Or however you define it
+}
 
 // Load application configuration
 $appConfig = require_once ROOT_PATH . '/config/app.php';

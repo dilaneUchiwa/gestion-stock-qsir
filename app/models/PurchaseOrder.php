@@ -67,7 +67,7 @@ class PurchaseOrder extends Model {
         }
 
 
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
 
         try {
             // Insert Purchase Order
@@ -76,7 +76,7 @@ class PurchaseOrder extends Model {
             $poId = $this->db->insert($sqlPo, $poParams);
 
             if (!$poId) {
-                $this->pdo->rollBack();
+                // $this->pdo->rollBack();
                 error_log("Failed to create purchase order header.");
                 return false;
             }
@@ -87,7 +87,7 @@ class PurchaseOrder extends Model {
 
             foreach ($itemsData as $item) {
                 if (empty($item['product_id']) || empty($item['unit_id'])) { // Basic item validation
-                     $this->pdo->rollBack();
+                     // $this->pdo->rollBack();
                      error_log("Product ID and Unit ID are missing for an item.");
                      return false;
                 }
@@ -105,11 +105,11 @@ class PurchaseOrder extends Model {
                 $this->db->executeQuery($sqlItem, $itemParams);
             }
 
-            $this->pdo->commit();
+            // $this->pdo->commit();
             return $poId;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             error_log("Error creating purchase order with items: " . $e->getMessage());
             return false;
         }
@@ -207,7 +207,7 @@ class PurchaseOrder extends Model {
             return false;
         }
 
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
         try {
             // Update PO Header
             if (!empty($data)) {
@@ -247,7 +247,7 @@ class PurchaseOrder extends Model {
                      if (empty($item['product_id']) || empty($item['unit_id']) ||
                          !isset($item['quantity_ordered']) || !isset($item['unit_price']) ||
                          $item['quantity_ordered'] <= 0 || $item['unit_price'] < 0) {
-                        $this->pdo->rollBack();
+                        // $this->pdo->rollBack();
                         error_log("Invalid item data during update: product_id, unit_id, quantity and unit price must be valid.");
                         return false;
                     }
@@ -266,16 +266,16 @@ class PurchaseOrder extends Model {
                 // Update PO total_amount based on new items
                 $this->db->update("UPDATE {$this->tableName} SET total_amount = :total_amount, updated_at = CURRENT_TIMESTAMP WHERE id = :id", [':total_amount' => $newTotalAmount, ':id' => $id]);
             } elseif (empty($data) && $itemsData === null) { // No header data and no items means nothing to update
-                 $this->pdo->rollBack(); // Nothing was changed but to be safe.
+                 // $this->pdo->rollBack(); // Nothing was changed but to be safe.
                  return true; // Or false, depending on desired behavior for no-op.
             }
 
 
-            $this->pdo->commit();
+            // $this->pdo->commit();
             return true;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             error_log("Error updating purchase order ID {$id}: " . $e->getMessage());
             return false;
         }

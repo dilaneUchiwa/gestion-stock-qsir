@@ -22,7 +22,7 @@
         </div>
     <?php endif; ?>
 
-    <a href="index.php?url=units/create" class="btn btn-primary mb-3">Créer une unité</a>
+    <a href="index.php?url=units/create" class="button button-success">Créer une unité</a>
 
     <?php if (empty($data['units'])): ?>
         <p>Aucune unité trouvée.</p>
@@ -38,11 +38,11 @@
             <tbody>
                 <?php foreach ($data['units'] as $unit): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($unit->name); ?></td>
-                        <td><?php echo htmlspecialchars($unit->symbol); ?></td>
+                        <td><?php echo htmlspecialchars($unit['name']); ?></td>
+                        <td><?php echo htmlspecialchars($unit['symbol']); ?></td>
                         <td>
-                            <a href="index.php?url=units/edit/<?php echo $unit->id; ?>" class="btn btn-sm btn-warning">Modifier</a>
-                            <a href="index.php?url=units/destroy/<?php echo $unit->id; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette unité?');">Supprimer</a>
+                            <a href="index.php?url=units/edit/<?php echo $unit['id']; ?>" class="button btn-sm">Modifier</a>
+                            <a href="index.php?url=units/destroy/<?php echo $unit['id']; ?>" class="button btn-sm button-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette unité?');">Supprimer</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>

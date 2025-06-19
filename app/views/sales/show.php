@@ -24,9 +24,9 @@ if (isset($_GET['status'])) {
     <?php if ($sale['payment_type'] === 'deferred' && !in_array($sale['payment_status'], ['paid', 'cancelled', 'refunded'])): ?>
         <a href="index.php?url=sale/manage_payments/<?php echo $sale['id']; ?>" class="button" style="background-color: #ffc107; color: black;">Gérer les Paiements</a>
     <?php endif; ?>
-    <?php // Edit/Delete: Add conditions for when these actions are allowed (e.g., not if paid)
-        // <a href="index.php?url=sale/edit/<?php echo $sale['id']; ?>" class="button">Modifier la vente</a>
-        if (!in_array($sale['payment_status'], ['paid', 'partially_paid']) || in_array($sale['payment_status'], ['cancelled', 'pending'])):
+    <?php // Edit/Delete: Add conditions for when these actions are allowed (e.g., not if paid)?>
+        <!-- <a href="index.php?url=sale/edit/<?php echo $sale['id']; ?>" class="button">Modifier la vente</a> -->
+        <?php if (!in_array($sale['payment_status'], ['paid', 'partially_paid']) || in_array($sale['payment_status'], ['cancelled', 'pending'])):
     ?>
     <form action="index.php?url=sale/destroy/<?php echo $sale['id']; ?>" method="POST" style="display:inline; margin-left:10px;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette vente ? Cela annulera les quantités en stock.');">
         <button type="submit" class="button-danger">Supprimer la vente</button>

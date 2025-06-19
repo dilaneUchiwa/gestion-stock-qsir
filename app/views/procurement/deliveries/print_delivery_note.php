@@ -121,7 +121,7 @@
             <p>Bon de livraison généré le <?php echo date('d/m/Y H:i'); ?>.</p>
         </div>
 
-         <div class="no-print" style="text-align:center; margin-top:20px;">
+         <div class="no-prinWt" style="text-align:center; margin-top:20px;">
             <button onclick="window.print();">Imprimer ce Bon de Livraison</button>
             <button onclick="window.close();">Fermer</button>
         </div>

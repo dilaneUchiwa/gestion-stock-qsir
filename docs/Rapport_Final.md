@@ -14,7 +14,7 @@ Le projet est structuré selon le motif de conception Modèle-Vue-Contrôleur (M
 
 *   **Modèles (`app/models/`) :** Représentent la logique métier et l'interaction avec la base de données. Chaque entité principale (Produit, Client, Fournisseur, Vente, Commande Fournisseur, Livraison, Catégories, Unités, etc.) possède son propre modèle. Ils héritent d'une classe `Model` de base et sont responsables de la validation des données, de l'exécution des requêtes SQL (via la classe `Database`), et du retour des données au contrôleur.
 *   **Vues (`app/views/`) :** Sont responsables de la présentation des données à l'utilisateur. Elles sont composées de fichiers PHP contenant du HTML et des boucles/conditions PHP simples pour afficher les données passées par les contrôleurs. Un système de layout principal (`layouts/main.php`) est utilisé pour maintenir une structure de page cohérente. Des vues spécifiques pour l'impression (`print_*.php`) sont utilisées sans le layout principal.
-*   **Contrôleurs (`app/controllers/`) :** Agissent comme intermédiaires entre les Modèles et les Vues. Ils reçoivent les requêtes de l'utilisateur (via le routeur), interagissent avec les modèles pour récupérer ou modifier des données, puis sélectionnent et passent les données à la vue appropriée pour l'affichage. Chaque module fonctionnel possède son propre contrôleur (ex: `ProductsController`, `SaleController`, `ProductCategoriesController`, `ReportController`, `FractioningController`).
+*   **Contrôleurs (`app/controllers/`) :** Agissent comme intermédiaires entre les Modèles et les Vues. Ils reçoivent les requêtes de l'utilisateur (via le routeur), interagissent avec les modèles pour récupérer ou modifier des données, puis sélectionnent et passent les données à la vue appropriée pour l'affichage. Chaque module fonctionnel possède son propre contrôleur (ex: `ProductsController`, `SaleController`, `ProductcategoriesController`, `ReportController`, `FractioningController`).
 
 ### 2.2. Composants `core/`
 
@@ -84,7 +84,7 @@ Des triggers `update_updated_at_column` sont appliqués aux nouvelles tables de 
 ## 4. Description des Modules Fonctionnels (Mise à Jour)
 
 ### 4.1. Module Produits (`ProductsController`, `ProductModel`)
-*   **Fonctionnalités :** CRUD complet. Gestion des catégories de produits via `ProductCategoriesController`.
+*   **Fonctionnalités :** CRUD complet. Gestion des catégories de produits via `ProductcategoriesController`.
 *   **Unités de Mesure :** Chaque produit a une `base_unit_id` obligatoire. Des unités alternatives peuvent être associées via `product_units` avec un `conversion_factor_to_base_unit`. L'interface de création/modification de produit permet de gérer ces associations.
 *   **Fractionnement (`FractioningController`, `ProductModel`, `StockMovementModel`) :**
     *   Interface dédiée pour convertir une quantité d'un produit d'une unité source vers une unité cible (pour le même produit).

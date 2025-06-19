@@ -6,7 +6,7 @@ class Database {
     private $config;
 
     private function __construct() {
-        $this->config = require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
+        $this->config = require ROOT_PATH . '/config/database.php';
         $dsn = "{$this->config['driver']}:host={$this->config['host']};port={$this->config['port']};dbname={$this->config['database']};user={$this->config['username']};password={$this->config['password']}";
 
         $options = [

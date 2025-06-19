@@ -74,7 +74,7 @@
             <p>Merci !</p>
         </div>
 
-        <div class="no-print" style="text-align:center; margin-top:20px;">
+        <div class="no-priwnt" style="text-align:center; margin-top:20px;">
             <button onclick="window.print();">Imprimer ce reçu</button>
             <button onclick="window.close();">Fermer</button>
         </div>

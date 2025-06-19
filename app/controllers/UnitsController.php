@@ -9,16 +9,16 @@ class UnitsController extends Controller {
 
     public function index() {
         $units = $this->unitModel->getAll();
-        $this->view('units/index', ['units' => $units]);
+        $this->renderView('units/index', ['units' => $units]);
     }
 
     public function create() {
-        $this->view('units/create');
+        $this->renderView('units/create');
     }
 
     public function store() {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST, FILTER_DEFAULT);
 
             $data = [
                 'name' => trim($_POST['name']),
@@ -37,15 +37,18 @@ class UnitsController extends Controller {
             if (empty($data['name_err']) && empty($data['symbol_err'])) {
                 if ($this->unitModel->create($data)) {
                     // TODO: Implement flash messages
-                    redirect('units/index?status=created_success');
+                    header("Location /index.php?url=units&status=created_success");
+                    exit;
                 } else {
-                    redirect('units/index?status=created_error');
+                    header("Location /index.php?url=units&status=created_error");
+                    exit;
                 }
             } else {
-                $this->view('units/create', $data);
+                $this->renderView('units/create', $data);
             }
         } else {
-            redirect('units/create');
+            header("Location: units/create");
+            exit;
         }
     }
 
@@ -53,7 +56,7 @@ class UnitsController extends Controller {
         $unit = $this->unitModel->getById($id);
 
         if (!$unit) {
-            // TODO: Implement a proper 404 view
+            // TODO: Implement a proper 404 renderView
             die('Unit not found');
         }
 
@@ -65,12 +68,12 @@ class UnitsController extends Controller {
             'symbol_err' => ''
         ];
 
-        $this->view('units/edit', $data);
+        $this->renderView('units/edit', $data);
     }
 
     public function update($id) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST, FILTER_DEFAULT);
 
             $data = [
                 'id' => $id,
@@ -90,15 +93,18 @@ class UnitsController extends Controller {
             if (empty($data['name_err']) && empty($data['symbol_err'])) {
                 if ($this->unitModel->update($id, $data)) {
                     // TODO: Implement flash messages
-                    redirect('units/index?status=updated_success');
+                    header("Location /index.php?url=units&status=updated_success");
+                    exit;
                 } else {
-                    redirect('units/index?status=updated_error');
+                    header("Location /index.php?url=units&status=updated_error");
+                    exit;
                 }
             } else {
-                $this->view('units/edit', $data);
+                $this->renderView('units/edit', $data);
             }
         } else {
-            redirect('units/index');
+            header("Location /index.php?url=units");
+            exit;
         }
     }
 
@@ -107,13 +113,16 @@ class UnitsController extends Controller {
         try {
             if ($this->unitModel->delete($id)) {
                 // TODO: Implement flash messages
-                redirect('units/index?status=deleted_success');
+                header("Location /index.php?url=units&status=deleted_success");
+                exit;
             } else {
-                redirect('units/index?status=deleted_error');
+                header("Location /index.php?url=units&status=deleted_error");
+                exit;
             }
         } catch (Exception $e) {
             // TODO: Log the error
-            redirect('units/index?error=delete_failed_in_use');
+            header("Location /index.php?url=units&error=delete_failed_in_use");
+            exit;
         }
     }
 }

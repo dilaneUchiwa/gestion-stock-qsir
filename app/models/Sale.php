@@ -61,7 +61,7 @@ class Sale extends Model {
             error_log("Sale must have at least one item."); return false;
         }
 
-        $this->pdo->beginTransaction();
+        // // $this->pdo->beginTransaction();
         try {
             $productModel = new Product($this->db);
 
@@ -69,13 +69,13 @@ class Sale extends Model {
             foreach ($itemsData as $item) {
                 if (empty($item['product_id']) || empty($item['unit_id']) || empty($item['quantity_sold']) ||
                     $item['quantity_sold'] <= 0 || !isset($item['unit_price']) || $item['unit_price'] < 0) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     error_log("Invalid item data: product_id, unit_id, positive quantity_sold, and non-negative unit_price are required.");
                     return false;
                 }
                 $product = $productModel->getById($item['product_id']);
                 if (!$product) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     error_log("Product ID {$item['product_id']} not found for stock check.");
                     return "Produit ID {$item['product_id']} non trouvé.";
                 }
@@ -91,7 +91,7 @@ class Sale extends Model {
                         }
                     }
                     if ($conversionFactor === null || $conversionFactor == 0) {
-                        $this->pdo->rollBack();
+                        // // $this->pdo->rollBack();
                         error_log("Conversion factor not found or invalid for product ID {$item['product_id']}, unit ID {$item['unit_id']}.");
                         return "Erreur de configuration d'unité pour le produit: " . $product['name'];
                     }
@@ -99,7 +99,7 @@ class Sale extends Model {
                 }
 
                 if ($product['quantity_in_stock'] < $quantitySoldInBaseUnit) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     $unitInfo = (new Unit($this->db))->getById($item['unit_id']);
                     $unitNameForMsg = $unitInfo ? $unitInfo['name'] : "ID Unité ".$item['unit_id'];
                     error_log("Insufficient stock for product ID {$item['product_id']} (Name: {$product['name']}). Requested: {$item['quantity_sold']} {$unitNameForMsg} (équiv. {$quantitySoldInBaseUnit} {$product['base_unit_name']}). Available: {$product['quantity_in_stock']} {$product['base_unit_name']}.");
@@ -189,7 +189,7 @@ class Sale extends Model {
             $saleId = $this->db->insert($sqlSale, $saleParams);
 
             if (!$saleId) {
-                $this->pdo->rollBack();
+                // // $this->pdo->rollBack();
                 error_log("Failed to create sale header.");
                 return false;
             }
@@ -209,7 +209,7 @@ class Sale extends Model {
                 $saleItemId = $this->db->insert($sqlItem, $itemInsertParams);
 
                 if (!$saleItemId) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     error_log("Failed to create sale item for product ID {$item['product_id']}.");
                     return false;
                 }
@@ -225,7 +225,7 @@ class Sale extends Model {
                     'sale_items',                           // relatedDocumentType
                     $notes                                  // notes
                 )) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     // The error from updateStock (e.g. "Conversion factor not found") might be more specific
                     // than just "Failed to update stock". Consider how to bubble this up.
                     error_log("Failed to update stock or create movement for product ID {$item['product_id']} during sale SA-{$saleId}.");
@@ -233,11 +233,12 @@ class Sale extends Model {
                 }
             }
 
-            $this->pdo->commit();
+            // // $this->pdo->commit();
             return $saleId;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // var_dump($e);
+            // // $this->pdo->rollBack();
             error_log("Error creating sale with items: " . $e->getMessage());
             return false;
         }
@@ -391,17 +392,17 @@ class Sale extends Model {
     // Usually, a "return" or "cancellation" flow is preferred, which might create reverse transactions.
     // A simple delete that reverts stock:
     public function deleteSale($saleId) {
-        $this->pdo->beginTransaction();
+        // // $this->pdo->beginTransaction();
         try {
             $saleItems = $this->getItemsForSale($saleId);
             $saleHeader = $this->getById($saleId);
 
             if (!$saleHeader) {
-                $this->pdo->rollBack(); return false; // Not found
+                // // $this->pdo->rollBack(); return false; // Not found
             }
             // Cannot delete if already paid, unless specific logic allows (e.g. refund status first)
             if (in_array($saleHeader['payment_status'], ['paid', 'partially_paid']) && $saleHeader['payment_status'] !== 'cancelled' && $saleHeader['payment_status'] !== 'refunded') {
-                 $this->pdo->rollBack();
+                //  // $this->pdo->rollBack();
                  error_log("Cannot delete sale ID {$saleId} because it is marked as '{$saleHeader['payment_status']}'. Consider cancelling or refunding first.");
                  return "Cannot delete '{$saleHeader['payment_status']}' sale.";
             }
@@ -414,7 +415,7 @@ class Sale extends Model {
                 // Ensure item['unit_id'] is available. If getItemsForSale was not updated yet, this would fail.
                 // Assuming getItemsForSale now provides unit_id for each item.
                 if (empty($item['unit_id'])) {
-                     $this->pdo->rollBack();
+                    //  // $this->pdo->rollBack();
                      error_log("Unit ID missing for sale item ID {$item['id']} during sale deletion stock reversal. Cannot determine original unit.");
                      return "Erreur : unité manquante pour l'article ID {$item['id']} lors de l'annulation de la vente.";
                 }
@@ -428,7 +429,7 @@ class Sale extends Model {
                     'sale_items',                 // relatedDocumentType
                     $reversalNotes                // notes
                     )) {
-                    $this->pdo->rollBack();
+                    // // $this->pdo->rollBack();
                     error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during sale deletion.");
                     return false;
                 }
@@ -440,11 +441,11 @@ class Sale extends Model {
             // Delete sale header
             $rowCount = $this->db->delete("DELETE FROM {$this->tableName} WHERE id = :id", [':id' => $saleId]);
 
-            $this->pdo->commit();
+            // // $this->pdo->commit();
             return $rowCount > 0;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // // $this->pdo->rollBack();
             error_log("Error deleting sale ID {$saleId}: " . $e->getMessage());
             return false;
         }

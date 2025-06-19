@@ -54,7 +54,7 @@ class Product extends Model {
         $sql = "INSERT INTO {$this->tableName} (" . implode(', ', $columns) . ", created_at, updated_at)
                 VALUES (" . implode(', ', $placeholders) . ", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
 
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
         try {
             $productId = $this->db->insert($sql, $params);
             if ($productId) {
@@ -65,17 +65,17 @@ class Product extends Model {
                     'conversion_factor_to_base_unit' => 1.00000
                 ];
                 if (!$this->addUnit($productId, $productUnitData['unit_id'], $productUnitData['conversion_factor_to_base_unit'], true)) {
-                    $this->pdo->rollBack();
+                    // $this->pdo->rollBack();
                     error_log("Failed to add base unit entry for new product ID {$productId}. Product creation rolled back.");
                     return false;
                 }
-                $this->pdo->commit();
+                // $this->pdo->commit();
                 return $productId;
             }
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             return false;
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             error_log("Error creating product: " . $e->getMessage());
             // Check for specific constraint violations if needed, e.g., base_unit_id FK
             if (strpos($e->getMessage(), 'violates foreign key constraint "products_base_unit_id_fkey"') !== false) {
@@ -454,7 +454,7 @@ class Product extends Model {
             $quantityChangeInBaseUnit = $quantityInTransactionUnit * $conversionFactor;
         }
 
-        $this->pdo->beginTransaction();
+        // $this->pdo->beginTransaction();
         try {
             // 1. Update products.quantity_in_stock (cache field)
             // $quantityChangeInBaseUnit is already signed (positive for in, negative for out)
@@ -488,16 +488,16 @@ class Product extends Model {
             // and calculating the 'quantity' field in base units (which should match abs($quantityChangeInBaseUnit)).
 
             if (!$stockMovementModel->createMovement($movementData)) {
-                $this->pdo->rollBack();
+                // $this->pdo->rollBack();
                 error_log("Failed to create stock movement record for product ID {$productId}. Stock cache update rolled back.");
                 return false;
             }
 
-            $this->pdo->commit();
+            // $this->pdo->commit();
             return true;
 
         } catch (PDOException $e) {
-            $this->pdo->rollBack();
+            // $this->pdo->rollBack();
             error_log("Error updating stock for product ID {$productId} (transaction rolled back): " . $e->getMessage());
             if ($e->getCode() == '23514') { // CHECK constraint violation (e.g. stock < 0 if not allowed by DB)
                  error_log("Check constraint violated during stock update for product ID {$productId}.");
