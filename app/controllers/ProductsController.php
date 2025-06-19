@@ -36,9 +36,24 @@ class ProductsController extends Controller {
             // For clarity, let's rename the variable passed to the view to reflect its usage for stock display.
             $productConfiguredUnits = $this->productModel->getUnits($id);
 
+            $unitSellingPrices = [];
+            $unitPurchasePrices = [];
+
+            foreach ($productConfiguredUnits as $unit) {
+                if (isset($unit['id'])) { // Ensure unit_id exists
+                    $sellingPrice = $this->productModel->getSellingPrice($id, $unit['id']);
+                    $unitSellingPrices[$unit['id']] = $sellingPrice;
+
+                    $purchasePrice = $this->productModel->getPurchasePrice($id, $unit['id']);
+                    $unitPurchasePrices[$unit['id']] = $purchasePrice;
+                }
+            }
+
             $this->renderView('products/show', [
                 'product' => $product, // Contains base unit name, symbol, and quantity_in_stock (base)
-                'productConfiguredUnits' => $productConfiguredUnits // Contains all units for this product with factors
+                'productConfiguredUnits' => $productConfiguredUnits, // Contains all units for this product with factors
+                'unitSellingPrices' => $unitSellingPrices,
+                'unitPurchasePrices' => $unitPurchasePrices,
             ]);
         } else {
             // Handle product not found, e.g., show a 404 page or redirect
@@ -187,88 +202,86 @@ class ProductsController extends Controller {
                 return;
             }
 
-            $data = [
+            // Data for core product fields
+            $productCoreData = [
                 'name' => $_POST['name'] ?? '',
                 'description' => $_POST['description'] ?? '',
                 'category_id' => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
-                // base_unit_id is not updatable via this form as per previous decision
-                // quantity_in_stock is not directly updated here; managed by stock movements.
                 'purchase_price' => isset($_POST['purchase_price']) && $_POST['purchase_price'] !== '' ? (float)$_POST['purchase_price'] : null,
                 'selling_price' => isset($_POST['selling_price']) && $_POST['selling_price'] !== '' ? (float)$_POST['selling_price'] : null,
             ];
 
-            // Validation
-            if (empty($data['name'])) {
+            // Validation for core data
+            if (empty($productCoreData['name'])) {
                 $errors['name'] = 'Le nom du produit est requis.';
             }
-            if ($data['category_id'] && !$this->productCategoryModel->getById($data['category_id'])) {
+            if ($productCoreData['category_id'] && !$this->productCategoryModel->getById($productCoreData['category_id'])) {
                 $errors['category_id'] = "La catégorie sélectionnée n'est pas valide.";
             }
-            // TODO: Validate alternative_units structure and values
+
+            // Basic validation for alternative units structure if submitted
+            $alternativeUnitsDataFromPost = $_POST['alternative_units'] ?? [];
+            if (!is_array($alternativeUnitsDataFromPost)) {
+                $errors['alternative_units'] = "Format des unités alternatives invalide.";
+            } else {
+                foreach ($alternativeUnitsDataFromPost as $index => $altUnit) {
+                    if (!isset($altUnit['unit_id']) || !isset($altUnit['conversion_factor'])) {
+                        $errors["alternative_units_{$index}"] = "Unité alternative manquante ID ou facteur de conversion.";
+                    } elseif (empty($altUnit['unit_id']) && !empty($altUnit['conversion_factor']) && $altUnit['conversion_factor'] != '') {
+                         // If a conversion factor is provided but unit_id is empty, it's an error (allow empty factor if unit_id is also empty for a blank row)
+                        $errors["alternative_units_{$index}_unit_id"] = "L'ID d'unité est requis pour l'unité alternative #".($index+1).".";
+                    } elseif (!empty($altUnit['unit_id']) && ( !is_numeric($altUnit['conversion_factor']) || (float)$altUnit['conversion_factor'] <= 0) ) {
+                        $errors["alternative_units_{$index}_factor"] = "Facteur de conversion invalide (doit être numérique et > 0) pour l'unité alternative #".($index+1).".";
+                    } elseif (!empty($altUnit['unit_id']) && $altUnit['unit_id'] == $originalProduct['base_unit_id'] ) {
+                         if ((float)$altUnit['conversion_factor'] != 1) {
+                            $errors["alternative_units_{$index}_base"] = "Le facteur de conversion pour l'unité de base doit être 1.";
+                         }
+                         // Allow base unit to be in the list if factor is 1, it will be skipped by model's addUnit.
+                    }
+                }
+            }
+
 
             if (!empty($errors)) {
-                // Repopulate data for the view
                 $categories = $this->productCategoryModel->getAll();
-                $units = $this->unitModel->getAll();
-                $productUnits = $this->productModel->getUnits($id);
-                $alternativeUnitsDetails = array_filter($productUnits, fn($pu) => !$pu['is_base_unit']);
+                $units = $this->unitModel->getAll(); // Needed for formatAlternativeUnitsForView
+                $productUnits = $this->productModel->getUnits($id); // Original configured units
 
                 $this->renderView('products/edit', [
                     'errors' => $errors,
-                    'product' => array_merge($originalProduct, $data), // Show submitted data on error
+                    'product' => array_merge($originalProduct, $productCoreData),
                     'categories' => $categories,
-                    'units' => $units,
-                    'product_units' => $productUnits,
-                    'alternative_units_details' => $alternativeUnitsDetails // Show original alternatives on validation error of main fields
-                                                                          // Or try to merge with POSTed alternative_units:
-                                                                          // 'alternative_units_details' => $_POST['alternative_units'] ?? $alternativeUnitsDetails,
+                    'units' => $units, // Pass all system units for dropdowns
+                    'product_units' => $productUnits, // Original full list of product's units for reference
+                                                      // For submitted alternative units, format them for view consistency
+                    'alternative_units_details' => $this->formatAlternativeUnitsForView($alternativeUnitsDataFromPost, $units, $originalProduct['base_unit_id']),
                 ]);
                 return;
             }
 
-            $updateSuccess = $this->productModel->update($id, $data);
+            // Call the new transactional method
+            $updateSuccess = $this->productModel->updateProductWithUnits($id, $productCoreData, $alternativeUnitsDataFromPost);
 
-            if ($updateSuccess !== false) {
-                // Manage alternative units (simplified: remove all non-base, then add submitted)
-                // TODO: Implement a more granular update (compare, update, add, delete individually)
-                $existingUnits = $this->productModel->getUnits($id);
-                foreach ($existingUnits as $exUnit) {
-                    if (!$exUnit['is_base_unit']) {
-                        $this->productModel->removeUnit($id, $exUnit['id']);
-                    }
-                }
-
-                if (isset($_POST['alternative_units']) && is_array($_POST['alternative_units'])) {
-                    foreach ($_POST['alternative_units'] as $altUnit) {
-                        if (isset($altUnit['unit_id'], $altUnit['conversion_factor']) &&
-                            !empty($altUnit['unit_id']) && is_numeric($altUnit['conversion_factor']) &&
-                            $altUnit['unit_id'] != $originalProduct['base_unit_id']) { // Do not re-add base unit as alternative
-
-                            $addSuccess = $this->productModel->addUnit($id, (int)$altUnit['unit_id'], (float)$altUnit['conversion_factor']);
-                            if (!$addSuccess) {
-                                error_log("Failed to add/update alternative unit ID {$altUnit['unit_id']} for product ID {$id} during update.");
-                                // Collect these errors to show to user if necessary
-                            }
-                        }
-                    }
-                }
-
+            if ($updateSuccess) {
                 header("Location: /index.php?url=products/show/{$id}&status=updated_success");
                 exit;
             } else {
-                // Handle main product update failure
+                // Handle failure of the transactional update
                 $categories = $this->productCategoryModel->getAll();
-                $units = $this->unitModel->getAll();
-                $productUnits = $this->productModel->getUnits($id);
-                $alternativeUnitsDetails = array_filter($productUnits, fn($pu) => !$pu['is_base_unit']);
+                $units = $this->unitModel->getAll(); // Needed for formatAlternativeUnitsForView
+                // Re-fetch product data as the transaction might have rolled back to original state or partially changed then rolled back.
+                $currentProductState = $this->productModel->getById($id) ?: $originalProduct; // Fallback to original if fetch fails
+                $currentProductUnits = $this->productModel->getUnits($id);
+
 
                 $this->renderView('products/edit', [
-                    'errors' => ['general' => 'Échec de la mise à jour du produit.'],
-                    'product' => array_merge($originalProduct, $data),
+                    'errors' => array_merge($errors, ['general' => 'Échec de la mise à jour du produit et de ses unités.']),
+                    'product' => array_merge($currentProductState, $productCoreData), // Show submitted core data again
                     'categories' => $categories,
-                    'units' => $units,
-                    'product_units' => $productUnits,
-                    'alternative_units_details' => $alternativeUnitsDetails
+                    'units' => $units, // Pass all system units for dropdowns
+                    'product_units' => $currentProductUnits, // Show current state of all units
+                                                              // For submitted alternative units, format them for view consistency
+                    'alternative_units_details' => $this->formatAlternativeUnitsForView($alternativeUnitsDataFromPost, $units, $originalProduct['base_unit_id']),
                 ]);
             }
         } else {
@@ -294,6 +307,38 @@ class ProductsController extends Controller {
             // Ideally, use session-based flash messages to show errors after redirect.
             $this->renderView('errors/500', ['message' => "Échec de la suppression du produit avec l'ID {$id}."]);
         }
+    }
+
+    private function formatAlternativeUnitsForView(array $submittedUnits, array $allSystemUnits, $baseUnitId) {
+        $details = [];
+        $unitMap = array_column($allSystemUnits, null, 'id'); // Map unit id to unit details
+
+        foreach ($submittedUnits as $subUnit) {
+            // Ensure basic structure and that unit_id is present.
+            if (empty($subUnit['unit_id']) || !isset($subUnit['conversion_factor'])) {
+                continue;
+            }
+            // Skip if it's the base unit or conversion factor is invalid for an alternative unit
+            if ($subUnit['unit_id'] == $baseUnitId) {
+                continue;
+            }
+            if (!is_numeric($subUnit['conversion_factor']) || (float)$subUnit['conversion_factor'] <= 0) {
+                 // Optionally log this invalid data submission attempt
+                error_log("Invalid conversion factor for unit ID {$subUnit['unit_id']} during view formatting.");
+                continue;
+            }
+
+
+            $details[] = [
+                'id' => $subUnit['unit_id'], // This is unit_id, matching structure of getUnits
+                'unit_id' => $subUnit['unit_id'],
+                'name' => $unitMap[$subUnit['unit_id']]['name'] ?? 'Inconnu',
+                'symbol' => $unitMap[$subUnit['unit_id']]['symbol'] ?? 'N/A',
+                'conversion_factor_to_base_unit' => $subUnit['conversion_factor'],
+                'is_base_unit' => false // It's an alternative unit
+            ];
+        }
+        return $details;
     }
 }
 ?>

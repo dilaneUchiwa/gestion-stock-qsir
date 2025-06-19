@@ -78,3 +78,82 @@
         <a href="index.php?url=stock/index" class="button-info">Annuler</a>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productSelect = document.getElementById('product_id');
+    const unitSelect = document.getElementById('unit_id');
+    const initialUnitId = '<?php echo htmlspecialchars($data['unit_id'] ?? ''); ?>'; // For repopulation on error
+
+    if (!productSelect || !unitSelect) {
+        console.error('Product or Unit select element not found.');
+        return;
+    }
+
+    productSelect.addEventListener('change', function() {
+        const productId = this.value;
+        unitSelect.innerHTML = '<option value="">Chargement des unités...</option>'; // Clear current options and show loading
+
+        if (!productId) {
+            unitSelect.innerHTML = '<option value="">Sélectionner d'abord un produit</option>';
+            return;
+        }
+
+        fetch('/index.php?url=stock/get_product_units_json/' + productId)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                unitSelect.innerHTML = ''; // Clear loading/previous options
+                if (data.error) {
+                    console.error('Error fetching units:', data.error);
+                    unitSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+                    return;
+                }
+                if (data.length === 0) {
+                    unitSelect.innerHTML = '<option value="">Aucune unité configurée pour ce produit</option>';
+                    return;
+                }
+
+                let foundInitial = false;
+                data.forEach(unit => {
+                    const option = document.createElement('option');
+                    option.value = unit.unit_id; // Assuming 'unit_id' is the key from getUnitsForProduct
+                    option.textContent = unit.name + ' (' + unit.symbol + ')';
+                    if (initialUnitId && unit.unit_id == initialUnitId) {
+                       option.selected = true;
+                       foundInitial = true;
+                    }
+                    unitSelect.appendChild(option);
+                });
+
+                // If there was an initialUnitId (form repopulation) but it wasn't found in the new list (e.g. product changed),
+                // select the first available unit if any.
+                if (initialUnitId && !foundInitial && unitSelect.options.length > 0) {
+                    // unitSelect.options[0].selected = true; // Or leave as "Select unit"
+                } else if (!initialUnitId && unitSelect.options.length > 0) {
+                    // unitSelect.options[0].selected = true; // Optionally select first by default on new selection
+                }
+                 if (unitSelect.options.length === 0){ // Should be caught by data.length === 0 earlier
+                     unitSelect.innerHTML = '<option value="">Aucune unité disponible</option>';
+                 }
+
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                unitSelect.innerHTML = '<option value="">Erreur de chargement des unités</option>';
+            });
+    });
+
+    // Trigger change on page load if a product is already selected (e.g., form repopulation due to error)
+    if (productSelect.value) {
+        productSelect.dispatchEvent(new Event('change'));
+    } else {
+        // Ensure the unit select is in a default state if no product selected
+         unitSelect.innerHTML = '<option value="">Sélectionner d'abord un produit</option>';
+    }
+});
+</script>

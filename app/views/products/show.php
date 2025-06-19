@@ -29,8 +29,8 @@
         </select>
         <strong style="margin-left: 10px;">Quantité Convertie : <span id="convertedStockDisplay">-</span></strong>
     </div>
-    <p><strong>Prix d'achat :</strong> <?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
-    <p><strong>Prix de vente :</strong> <?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
+    <p><strong>Prix d'achat :</strong> <span id="displayPurchasePrice"><?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></span></p>
+    <p><strong>Prix de vente :</strong> <span id="displaySellingPrice"><?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></span></p>
     <p><strong>Créé le :</strong> <?php echo htmlspecialchars($product['created_at']); ?></p>
     <p><strong>Mis à jour le :</strong> <?php echo htmlspecialchars($product['updated_at']); ?></p>
 
@@ -89,42 +89,75 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const unitSellingPrices = <?php echo json_encode($unitSellingPrices ?? []); ?>;
+    const unitPurchasePrices = <?php echo json_encode($unitPurchasePrices ?? []); ?>;
+    const appCurrencySymbol = '<?php echo defined('APP_CURRENCY_SYMBOL') ? APP_CURRENCY_SYMBOL : ''; ?>';
+
     const baseStockQuantityElement = document.getElementById('baseStockQuantity');
     const displayUnitSelect = document.getElementById('displayUnitSelect');
     const convertedStockDisplay = document.getElementById('convertedStockDisplay');
+    const displaySellingPriceElement = document.getElementById('displaySellingPrice');
+    const displayPurchasePriceElement = document.getElementById('displayPurchasePrice');
 
-    if (!baseStockQuantityElement || !displayUnitSelect || !convertedStockDisplay) {
-        console.error('One or more elements for stock display not found.');
+    if (!baseStockQuantityElement || !displayUnitSelect || !convertedStockDisplay || !displaySellingPriceElement || !displayPurchasePriceElement) {
+        console.error('One or more elements for dynamic display not found.');
         return;
     }
 
     const baseQuantity = parseFloat(baseStockQuantityElement.dataset.baseQuantity);
 
-    function updateConvertedStock() {
+    function updateUnitSpecificInfo() { // Renamed from updateConvertedStock for clarity
         const selectedOption = displayUnitSelect.options[displayUnitSelect.selectedIndex];
         if (!selectedOption) {
-            convertedStockDisplay.textContent = 'N/A';
+            if(convertedStockDisplay) convertedStockDisplay.textContent = 'N/A';
+            if(displaySellingPriceElement) displaySellingPriceElement.textContent = 'N/A';
+            if(displayPurchasePriceElement) displayPurchasePriceElement.textContent = 'N/A';
             return;
         }
         const conversionFactor = parseFloat(selectedOption.dataset.conversionFactor);
         const unitSymbol = selectedOption.dataset.symbol;
+        const selectedUnitId = selectedOption.value;
 
-        if (isNaN(baseQuantity) || isNaN(conversionFactor)) {
-            convertedStockDisplay.textContent = 'Données invalides';
-            return;
+        // Update converted stock
+        if (convertedStockDisplay) {
+            if (isNaN(baseQuantity) || isNaN(conversionFactor)) {
+                convertedStockDisplay.textContent = 'Données invalides';
+            } else if (conversionFactor === 0) {
+                convertedStockDisplay.textContent = 'Facteur de conversion invalide (0)';
+            } else {
+                const convertedQuantity = baseQuantity / conversionFactor;
+                convertedStockDisplay.textContent = convertedQuantity.toFixed(3).replace(/\.?0+$/, '') + ' ' + unitSymbol;
+            }
         }
 
-        if (conversionFactor === 0) {
-            convertedStockDisplay.textContent = 'Facteur de conversion invalide (0)';
-            return;
+        // Update selling price
+        const newSellingPrice = unitSellingPrices[selectedUnitId];
+        if (displaySellingPriceElement) {
+            if (newSellingPrice !== null && newSellingPrice !== undefined) {
+                displaySellingPriceElement.textContent = parseFloat(newSellingPrice).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + appCurrencySymbol;
+            } else {
+                displaySellingPriceElement.textContent = 'N/A';
+            }
         }
 
-        const convertedQuantity = baseQuantity / conversionFactor;
-        // Format to a reasonable number of decimal places, e.g., 3
-        convertedStockDisplay.textContent = convertedQuantity.toFixed(3).replace(/\.?0+$/, '') + ' ' + unitSymbol;
+        // Update purchase price
+        const newPurchasePrice = unitPurchasePrices[selectedUnitId];
+        if (displayPurchasePriceElement) {
+            if (newPurchasePrice !== null && newPurchasePrice !== undefined) {
+                displayPurchasePriceElement.textContent = parseFloat(newPurchasePrice).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + appCurrencySymbol;
+            } else {
+                displayPurchasePriceElement.textContent = 'N/A';
+            }
+        }
     }
 
     // Initial display
+    updateUnitSpecificInfo();
+
+    // Update on change
+    displayUnitSelect.addEventListener('change', updateUnitSpecificInfo);
+});
+</script>
     updateConvertedStock();
 
     // Update on change

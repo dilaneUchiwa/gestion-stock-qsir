@@ -134,13 +134,16 @@ class StockController extends Controller {
             if (empty($errors)) { // Proceed only if basic validations pass
                 switch ($adjustmentTypeKey) {
                     case 'initial_stock':
-                        $movementType = 'initial_stock';
-                        $quantityChange = $quantityInput;
-                        // For initial stock, we might want to check if stock already exists for this product/unit.
-                        // $existingStock = $this->productModel->getStock((int)$productId, (int)$unitId);
-                        // if ($existingStock > 0) {
-                        //    $errors['initial_stock'] = "Le stock initial pour ce produit et cette unité a déjà été défini. Utilisez un ajustement.";
-                        // }
+                        // For initial stock, check if stock already exists for this product/unit.
+                        // This check is inside the `if (empty($errors))` block, so $productId and $unitId are valid.
+                        $existingStock = $this->productModel->getStock((int)$productId, (int)$unitId);
+                        if ($existingStock > 0) {
+                           $errors['initial_stock'] = "Le stock initial pour ce produit et cette unité a déjà été défini (quantité: {$existingStock}). Utilisez un ajustement si vous souhaitez modifier le stock existant.";
+                        } else {
+                            // Only set movement type and quantity if no error from above check
+                            $movementType = 'initial_stock';
+                            $quantityChange = $quantityInput;
+                        }
                         break;
                     case 'adjustment_in':
                         $movementType = 'adjustment_in';
@@ -206,6 +209,38 @@ class StockController extends Controller {
             header("Location: /index.php?url=stock/create_adjustment");
             exit;
         }
+    }
+
+    /**
+     * Fetches configured units for a given product and returns them as JSON.
+     * Expected to be called via AJAX.
+     * @param int $productId
+     */
+    public function get_product_units_json($productId) {
+        header('Content-Type: application/json');
+        if (empty($productId) || !is_numeric($productId)) {
+            // It's better to set HTTP status code for errors
+            http_response_code(400); // Bad Request
+            echo json_encode(['error' => 'Invalid or missing product ID']);
+            return;
+        }
+
+        $product = $this->productModel->getById((int)$productId);
+        if (!$product) {
+            http_response_code(404); // Not Found
+            echo json_encode(['error' => 'Product not found']);
+            return;
+        }
+
+        // getUnitsForProduct returns an array of units: [ ['unit_id', 'name', 'symbol', 'conversion_factor_to_base_unit'], ... ]
+        $units = $this->productModel->getUnitsForProduct((int)$productId);
+        if ($units === false || $units === null) { // Model might return false on error
+            http_response_code(500); // Internal Server Error
+            echo json_encode(['error' => 'Failed to retrieve units for product']);
+            return;
+        }
+
+        echo json_encode($units);
     }
 }
 ?>

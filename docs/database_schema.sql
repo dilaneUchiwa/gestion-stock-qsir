@@ -494,3 +494,26 @@ COMMENT ON COLUMN stock_movements.original_unit_id IS 'ID of the unit in which t
 COMMENT ON COLUMN stock_movements.original_quantity IS 'Quantity in original_unit_id. If NULL, consider that the movement was already in base unit and original_quantity = quantity.';
 COMMENT ON COLUMN stock_movements.related_document_id IS 'ID of the document that triggered this movement (e.g., delivery_item_id, sale_item_id).';
 COMMENT ON COLUMN stock_movements.related_document_type IS 'Type of the related document (e.g., ''delivery_items'', ''sale_items'').';
+
+-- Table product_stock_per_unit
+CREATE TABLE IF NOT EXISTS product_stock_per_unit (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    unit_id INTEGER NOT NULL REFERENCES units(id) ON DELETE RESTRICT, -- Prevent unit deletion if stock exists
+    quantity DECIMAL(12, 3) NOT NULL DEFAULT 0.000,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_product_stock_unit UNIQUE (product_id, unit_id)
+);
+
+CREATE TRIGGER update_product_stock_per_unit_updated_at
+BEFORE UPDATE ON product_stock_per_unit
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_product_id ON product_stock_per_unit(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_stock_unit_id ON product_stock_per_unit(unit_id);
+
+COMMENT ON TABLE product_stock_per_unit IS 'Stores the current stock quantity of each product in specific units of measure.';
+COMMENT ON COLUMN product_stock_per_unit.quantity IS 'Current quantity of the product in the specified unit_id.';
+COMMENT ON COLUMN product_stock_per_unit.unit_id IS 'The unit of measure for the quantity stored in this record.';
