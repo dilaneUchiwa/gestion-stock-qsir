@@ -60,11 +60,6 @@
     <fieldset>
         <legend>Tarification et stock</legend>
         <div class="form-group">
-            <label for="quantity_in_stock">Quantité en stock (en cache)</label>
-            <input type="number" name="quantity_in_stock" id="quantity_in_stock" value="<?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>" readonly>
-            <small>Le stock est géré via les livraisons, les ventes ou les ajustements de stock. <a href="index.php?url=stock/history/<?php echo $product['id']; ?>">Voir l'historique</a> ou <a href="index.php?url=stock/create_adjustment&product_id=<?php echo $product['id']; ?>">créer un ajustement</a>.</small>
-        </div>
-        <div class="form-group">
             <label for="purchase_price">Prix d'achat</label> <small>(pour l'unité de base)</small>
             <input type="number" name="purchase_price" id="purchase_price" value="<?php echo htmlspecialchars($product['purchase_price'] ?? '0.00'); ?>" step="0.01" min="0">
         </div>

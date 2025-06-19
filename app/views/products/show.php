@@ -6,59 +6,30 @@
     <p><strong>Description :</strong> <?php echo nl2br(htmlspecialchars($product['description'] ?? 'N/A')); ?></p>
     <p><strong>Catégorie :</strong> <?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></p>
     <p><strong>Unité de base :</strong> <?php echo htmlspecialchars($product['base_unit_name'] ?? 'N/A'); ?> (<?php echo htmlspecialchars($product['base_unit_symbol'] ?? ''); ?>)</p>
-    <p>
-        <strong>Quantité en stock (en unité de base) :</strong>
-        <span id="baseStockQuantity" data-base-quantity="<?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>">
-            <?php echo htmlspecialchars($product['quantity_in_stock'] ?? '0'); ?>
-        </span>
-        <?php echo htmlspecialchars($product['base_unit_symbol'] ?? ''); ?>
-    </p>
-    <div class="form-group" style="margin-bottom: 1rem;">
-        <label for="displayUnitSelect">Afficher le stock en :</label>
-        <select id="displayUnitSelect" style="padding: 0.375rem 0.75rem; border-radius: 0.25rem; border: 1px solid #ced4da;">
-            <?php if (!empty($productConfiguredUnits)): ?>
-                <?php foreach ($productConfiguredUnits as $unit): ?>
-                    <option value="<?php echo htmlspecialchars($unit['id']); ?>"
-                            data-conversion-factor="<?php echo htmlspecialchars((float)$unit['conversion_factor_to_base_unit']); ?>"
-                            data-symbol="<?php echo htmlspecialchars($unit['symbol']); ?>"
-                            <?php echo $unit['is_base_unit'] ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($unit['name'] . ' (' . $unit['symbol'] . ')'); ?>
-                    </option>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </select>
-        <strong style="margin-left: 10px;">Quantité Convertie : <span id="convertedStockDisplay">-</span></strong>
-    </div>
     <p><strong>Prix d'achat :</strong> <?php echo htmlspecialchars(number_format((float)($product['purchase_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
     <p><strong>Prix de vente :</strong> <?php echo htmlspecialchars(number_format((float)($product['selling_price'] ?? 0), 2, ',', ' ')) . ' ' . APP_CURRENCY_SYMBOL; ?></p>
     <p><strong>Créé le :</strong> <?php echo htmlspecialchars($product['created_at']); ?></p>
     <p><strong>Mis à jour le :</strong> <?php echo htmlspecialchars($product['updated_at']); ?></p>
 
-    <h3>Stock dans d'autres unités</h3>
-    <?php
-    $stockInBaseUnit = (float)($product['quantity_in_stock'] ?? 0);
-    $hasAlternativeUnitsForStockDisplay = false;
-    if (!empty($productConfiguredUnits)): ?>
+    <h3>État Actuel du Stock</h3>
+    <?php if (isset($product['detailed_stock']) && !empty($product['detailed_stock'])): ?>
         <ul>
-            <?php foreach ($productConfiguredUnits as $unit): ?>
-                <?php if (!$unit['is_base_unit'] && isset($unit['conversion_factor_to_base_unit']) && (float)$unit['conversion_factor_to_base_unit'] != 0):
-                    $hasAlternativeUnitsForStockDisplay = true;
-                    $stockInThisUnit = $stockInBaseUnit / (float)$unit['conversion_factor_to_base_unit'];
-                ?>
+            <?php foreach ($product['detailed_stock'] as $stock_detail): ?>
                 <li>
-                    <strong><?php echo htmlspecialchars(number_format($stockInThisUnit, 2, ',', ' ')); ?></strong>
-                    <?php echo htmlspecialchars($unit['name'] . ' (' . $unit['symbol'] . ')'); ?>
+                    <strong><?php echo htmlspecialchars(number_format($stock_detail['quantity_in_stock'], 2, ',', ' ')); ?></strong>
+                    <?php echo htmlspecialchars($stock_detail['unit_name']); ?>
+                    (<?php echo htmlspecialchars($stock_detail['unit_symbol']); ?>)
                 </li>
-                <?php endif; ?>
             <?php endforeach; ?>
         </ul>
-        <?php if (!$hasAlternativeUnitsForStockDisplay): ?>
-             <p>Aucune unité alternative avec facteur de conversion valide n'est configurée pour afficher le stock différemment.</p>
-        <?php endif; ?>
     <?php else: ?>
-        <p>Aucune unité alternative configurée pour ce produit.</p>
+        <p>Aucune information de stock disponible pour les unités configurées.</p>
     <?php endif; ?>
-
+    <p>
+        <strong>Total Estimé en Unité de Base :</strong>
+        <?php echo htmlspecialchars(number_format((float)($product['total_stock_in_base_unit'] ?? 0), 2, ',', ' ')); ?>
+        <?php echo htmlspecialchars($product['base_unit_symbol'] ?? ''); ?>
+    </p>
 
     <h3>Configurations d'unités de mesure</h3>
     <?php if (!empty($productConfiguredUnits)): ?>
@@ -86,48 +57,3 @@
     <p>Produit non trouvé.</p>
     <a href="index.php?url=products" class="button-info">Retour à la liste</a>
 <?php endif; ?>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const baseStockQuantityElement = document.getElementById('baseStockQuantity');
-    const displayUnitSelect = document.getElementById('displayUnitSelect');
-    const convertedStockDisplay = document.getElementById('convertedStockDisplay');
-
-    if (!baseStockQuantityElement || !displayUnitSelect || !convertedStockDisplay) {
-        console.error('One or more elements for stock display not found.');
-        return;
-    }
-
-    const baseQuantity = parseFloat(baseStockQuantityElement.dataset.baseQuantity);
-
-    function updateConvertedStock() {
-        const selectedOption = displayUnitSelect.options[displayUnitSelect.selectedIndex];
-        if (!selectedOption) {
-            convertedStockDisplay.textContent = 'N/A';
-            return;
-        }
-        const conversionFactor = parseFloat(selectedOption.dataset.conversionFactor);
-        const unitSymbol = selectedOption.dataset.symbol;
-
-        if (isNaN(baseQuantity) || isNaN(conversionFactor)) {
-            convertedStockDisplay.textContent = 'Données invalides';
-            return;
-        }
-
-        if (conversionFactor === 0) {
-            convertedStockDisplay.textContent = 'Facteur de conversion invalide (0)';
-            return;
-        }
-
-        const convertedQuantity = baseQuantity / conversionFactor;
-        // Format to a reasonable number of decimal places, e.g., 3
-        convertedStockDisplay.textContent = convertedQuantity.toFixed(3).replace(/\.?0+$/, '') + ' ' + unitSymbol;
-    }
-
-    // Initial display
-    updateConvertedStock();
-
-    // Update on change
-    displayUnitSelect.addEventListener('change', updateConvertedStock);
-});
-</script>

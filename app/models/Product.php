@@ -294,9 +294,61 @@ class Product extends Model {
                 JOIN units u ON p.base_unit_id = u.id -- base_unit_id is NOT NULL, so JOIN is appropriate
                 ORDER BY p.name ASC"; // Changed order to name ASC for better display
         try {
-            return $this->db->select($sql);
+            $products = $this->db->select($sql);
+            if (!$products) {
+                return [];
+            }
+
+            foreach ($products as &$product) { // Use reference to modify array directly
+                $detailedStock = [];
+                $totalStockInBaseUnit = 0.0;
+
+                // Fetch all configured units for the product
+                $productUnitsSql = "SELECT
+                                        pu.unit_id,
+                                        u.name as unit_name,
+                                        u.symbol as unit_symbol,
+                                        pu.conversion_factor_to_base_unit
+                                    FROM product_units pu
+                                    JOIN units u ON pu.unit_id = u.id
+                                    WHERE pu.product_id = :product_id
+                                    ORDER BY u.name ASC";
+                $configuredUnits = $this->db->select($productUnitsSql, [':product_id' => $product['id']]);
+
+                if ($configuredUnits) {
+                    foreach ($configuredUnits as $unit) {
+                        // Fetch stock quantity for this unit
+                        $stockSql = "SELECT quantity
+                                     FROM product_stock_per_unit
+                                     WHERE product_id = :product_id AND unit_id = :unit_id";
+                        $stockResult = $this->db->select($stockSql, [':product_id' => $product['id'], ':unit_id' => $unit['unit_id']]);
+
+                        $quantityInStock = 0.0;
+                        if ($stockResult && count($stockResult) > 0) {
+                            $quantityInStock = (float)$stockResult[0]['quantity'];
+                        }
+
+                        $detailedStock[] = [
+                            'unit_id' => $unit['unit_id'],
+                            'unit_name' => $unit['unit_name'],
+                            'unit_symbol' => $unit['unit_symbol'],
+                            'conversion_factor_to_base_unit' => (float)$unit['conversion_factor_to_base_unit'],
+                            'quantity_in_stock' => $quantityInStock,
+                        ];
+
+                        // Calculate stock in base unit for this unit and add to total
+                        $totalStockInBaseUnit += $quantityInStock * (float)$unit['conversion_factor_to_base_unit'];
+                    }
+                }
+
+                $product['detailed_stock'] = $detailedStock;
+                $product['total_stock_in_base_unit'] = $totalStockInBaseUnit;
+            }
+            unset($product); // Unset reference
+
+            return $products;
         } catch (PDOException $e) {
-            error_log("Error fetching all products: " . $e->getMessage());
+            error_log("Error fetching all products with stock details: " . $e->getMessage());
             return [];
         }
     }
@@ -319,10 +371,59 @@ class Product extends Model {
                 JOIN units u ON p.base_unit_id = u.id -- base_unit_id is NOT NULL
                 WHERE p.id = :id";
         try {
-            $result = $this->db->select($sql, [':id' => $id]);
-            return $result ? $result[0] : false;
+            $product = $this->db->select($sql, [':id' => $id]);
+            if (!$product) {
+                return false;
+            }
+            $product = $product[0]; // Get the first (and only) row
+
+            $detailedStock = [];
+            $totalStockInBaseUnit = 0.0;
+
+            // Fetch all configured units for the product
+            $productUnitsSql = "SELECT
+                                    pu.unit_id,
+                                    u.name as unit_name,
+                                    u.symbol as unit_symbol,
+                                    pu.conversion_factor_to_base_unit
+                                FROM product_units pu
+                                JOIN units u ON pu.unit_id = u.id
+                                WHERE pu.product_id = :product_id
+                                ORDER BY u.name ASC";
+            $configuredUnits = $this->db->select($productUnitsSql, [':product_id' => $product['id']]);
+
+            if ($configuredUnits) {
+                foreach ($configuredUnits as $unit) {
+                    // Fetch stock quantity for this unit
+                    $stockSql = "SELECT quantity
+                                 FROM product_stock_per_unit
+                                 WHERE product_id = :product_id AND unit_id = :unit_id";
+                    $stockResult = $this->db->select($stockSql, [':product_id' => $product['id'], ':unit_id' => $unit['unit_id']]);
+
+                    $quantityInStock = 0.0;
+                    if ($stockResult && count($stockResult) > 0) {
+                        $quantityInStock = (float)$stockResult[0]['quantity'];
+                    }
+
+                    $detailedStock[] = [
+                        'unit_id' => $unit['unit_id'],
+                        'unit_name' => $unit['unit_name'],
+                        'unit_symbol' => $unit['unit_symbol'],
+                        'conversion_factor_to_base_unit' => (float)$unit['conversion_factor_to_base_unit'],
+                        'quantity_in_stock' => $quantityInStock,
+                    ];
+
+                    // Calculate stock in base unit for this unit and add to total
+                    $totalStockInBaseUnit += $quantityInStock * (float)$unit['conversion_factor_to_base_unit'];
+                }
+            }
+
+            $product['detailed_stock'] = $detailedStock;
+            $product['total_stock_in_base_unit'] = $totalStockInBaseUnit;
+
+            return $product;
         } catch (PDOException $e) {
-            error_log("Error fetching product by ID {$id}: " . $e->getMessage());
+            error_log("Error fetching product by ID {$id} with stock details: " . $e->getMessage());
             return false;
         }
     }

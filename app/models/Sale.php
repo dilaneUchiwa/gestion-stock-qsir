@@ -445,27 +445,27 @@ class Sale extends Model {
             // Revert stock quantities (add back to stock) and create reversal movements
             $productModel = new Product($this->db);
             foreach ($saleItems as $item) {
-                $reversalNotes = "Reversal for deleted/cancelled SA-{$saleId}, Item ID: {$item['id']}";
-                // Ensure item['unit_id'] is available. If getItemsForSale was not updated yet, this would fail.
-                // Assuming getItemsForSale now provides unit_id for each item.
+                // Ensure item['unit_id'] is available. getItemsForSale provides unit_id, product_name, unit_name, unit_symbol.
                 if (empty($item['unit_id'])) {
                     //  // $this->pdo->rollBack();
-                     error_log("Unit ID missing for sale item ID {$item['id']} during sale deletion stock reversal. Cannot determine original unit.");
-                     return "Erreur : unité manquante pour l'article ID {$item['id']} lors de l'annulation de la vente.";
+                     error_log("Unit ID missing for sale item ID {$item['id']} (Product: {$item['product_name']}) during sale deletion stock reversal. Cannot determine original unit.");
+                     return "Erreur : unité manquante pour l'article {$item['product_name']} (ID: {$item['product_id']}) lors de l'annulation de la vente.";
                 }
 
-                if (!$productModel->updateStock(
+                $reversalNotes = "Reversion de stock: suppression vente SA-{$saleId}. Article: {$item['product_name']} (ID Produit: {$item['product_id']}). Qté: " . (float)$item['quantity_sold'] . " " . $item['unit_symbol'] . ". Item Vente ID: {$item['id']}.";
+
+                if (!$productModel->updateStockQuantity(
                     (int)$item['product_id'],      // productId
+                    (int)$item['unit_id'],         // unitId (original unit from sale_items)
+                    (float)$item['quantity_sold'], // quantityChange (POSITIVE, adding stock back)
                     'sale_reversal',              // movementType
-                    (float)$item['quantity_sold'], // POSITIVE quantityInTransactionUnit
-                    (int)$item['unit_id'],         // transactionUnitId (original unit from sale_items)
-                    $item['id'],                  // relatedDocumentId (original sale_item_id)
-                    'sale_items',                 // relatedDocumentType
+                    (int)$item['id'],             // relatedDocumentId (original sale_item_id)
+                    'sale_items_reversal',        // relatedDocumentType
                     $reversalNotes                // notes
-                    )) {
+                )) {
                     // // $this->pdo->rollBack();
-                    error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} during sale deletion.");
-                    return false;
+                    error_log("Failed to revert stock (create reversal movement) for product ID {$item['product_id']} (Unit ID: {$item['unit_id']}) during sale SA-{$saleId} deletion using updateStockQuantity.");
+                    return "Échec de l'annulation du stock pour le produit ID {$item['product_id']} (Unité ID: {$item['unit_id']}).";
                 }
             }
 
