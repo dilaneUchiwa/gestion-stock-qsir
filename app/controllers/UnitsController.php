@@ -37,10 +37,10 @@ class UnitsController extends Controller {
             if (empty($data['name_err']) && empty($data['symbol_err'])) {
                 if ($this->unitModel->create($data)) {
                     // TODO: Implement flash messages
-                    header("Location /index.php?url=units&status=created_success");
+                    header("Location: /index.php?url=units/index&status=created_success");
                     exit;
                 } else {
-                    header("Location /index.php?url=units&status=created_error");
+                    header("Location  /index.php?url=units/index&status=created_error");
                     exit;
                 }
             } else {
@@ -62,8 +62,8 @@ class UnitsController extends Controller {
 
         $data = [
             'id' => $id,
-            'name' => $unit->name,
-            'symbol' => $unit->symbol,
+            'name' => $unit['name'],
+            'symbol' => $unit['symbol'],
             'name_err' => '',
             'symbol_err' => ''
         ];
@@ -93,10 +93,10 @@ class UnitsController extends Controller {
             if (empty($data['name_err']) && empty($data['symbol_err'])) {
                 if ($this->unitModel->update($id, $data)) {
                     // TODO: Implement flash messages
-                    header("Location /index.php?url=units&status=updated_success");
+                    header("Location  /index.php?url=units/index&status=updated_success");
                     exit;
                 } else {
-                    header("Location /index.php?url=units&status=updated_error");
+                    header("Location  /index.php?url=units/index&status=updated_error");
                     exit;
                 }
             } else {
@@ -113,10 +113,10 @@ class UnitsController extends Controller {
         try {
             if ($this->unitModel->delete($id)) {
                 // TODO: Implement flash messages
-                header("Location /index.php?url=units&status=deleted_success");
+                header("Location  /index.php?url=units/index&status=deleted_success");
                 exit;
             } else {
-                header("Location /index.php?url=units&status=deleted_error");
+                header("Location  /index.php?url=units/index&status=deleted_error");
                 exit;
             }
         } catch (Exception $e) {
